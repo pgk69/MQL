@@ -1,39 +1,44 @@
 //+------------------------------------------------------------------+
 //|                                                 Ordermonitor.mq4 |
 //|                                                      Peter Kempf |
-//|                                                      Version 0.9 |
+//|                                                      Version 1.0 |
 //+------------------------------------------------------------------+
 #property copyright "Peter Kempf"
 #property link      ""
 
-#define VERSION     "0.9"
+#define VERSION     "1.0"
 
 //--- input parameters
-extern int TrailingLimit = 15;
-extern int MagicNumber = 11041963;
-
-extern int DebugLevel = 1;
+extern double TrailingLimitPips = 150;
+extern int MagicNumber          = 11041963;
+extern int MaxRetry             = 10;
+extern bool onlyCurrentSymbol   = true;
+extern int DebugLevel           = 1;
 // Level 0: Keine Debugausgaben
-// Level 1: Nur Order�nderungen werden protokolliert
-// Level 2: Alle �nderungen werden protokolliert
+// Level 1: Nur Orderaenderungen werden protokolliert
+// Level 2: Alle Aenderungen werden protokolliert
 // Level 3: Alle Programmschritte werden protokolliert
 // Level 4: Programmschritte und Datenstrukturen werden im Detail 
 //          protokolliert
 
+//--- Global variables
+
+
 // Imports
 #import "kernel32.dll"
-int  FindFirstFileA(string path, int& answer[]);
-bool FindNextFileA(int handle, int& answer[]);
+int  FindFirstFileA(string path,int &answer[]);
+bool FindNextFileA(int handle,int &answer[]);
 bool FindClose(int handle);
 #import
 
-// Global variables
 
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
 int init() {
-  Print ("Version: ", VERSION);
+  Print("Version: ",VERSION);
+  TrailingLimitPips=TrailingLimitPips/pow(10, Digits);
+  Print("TrailingLimitPips: ",TrailingLimitPips);
   return(0);
 }
 
@@ -49,56 +54,133 @@ int deinit() {
 //+------------------------------------------------------------------+
 int start() {
 
-  bool modifyOrder = false;
-  int i, faktor, retry, rc, ticket;
-  double price, SL, TP;
+  int i, rc, Retry, Ticket;
+  double SL, TP;
 
-  if (DebugLevel > 2) Print (Symbol(), RunMode, "Orderbuch auslesen (Total alle Symbole: ", OrdersTotal(), ")");
-  for(i=0; i<OrdersTotal(); i++) {
-    // Nur das aktuelle Symbol wird ausgewertet und nur aktive SELL- oder BUY-Positionen
-    if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES)==false || 
-        OrderSymbol()!= Symbol() || 
-        OrderMagicNumber()!= MagicNumber || 
-        (OrderType()!=OP_BUY && OrderType()!=OP_SELL))
-      continue;
+  // Durch Indikator ermittelter Anpassungsfaktor bestimmen
+  double Anpassung = indFaktor();
+  if (DebugLevel > 2) Print(Symbol()," Anpassungsfaktor bestimmt zu: ", Anpassung);
   
-    if (OrderType()==OP_SELL) {
-      faktor = -1
-      prize = NormalizeDouble(Bid, Digits);
-    } else {
-      faktor = 1;
-      prize = NormalizeDouble(Ask, Digits);
-    }
-
-    TP = OrderTakeProfit();
-    if (TP == 0) {
-      TP = prize + faktor * 2 * TrailingLimit;
-    }
-    SL = OrderStopLoss();
-    if (SL == 0) {
-      SL = prize - faktor * 2 * TrailingLimit;
-    }
-    if (faktor * (TP - prize) < faktor * (prize - SL)) {
-      if (faktor * (TP - prize) < TrailingLimit) {
-        SL = prize - faktor * TrailingLimit;
-        TP = prize + faktor * TrailingLimit;
-      } else {
-        SL = prize - (TP - prize);
-      }
-    }
-
+  // Bearbeitung aller offenen Trades
+  if (DebugLevel > 2) Print(Symbol()," Orderbuch auslesen (Total alle Symbole: ",OrdersTotal(),")");
+  for (i=0; i<OrdersTotal(); i++) {
+    // in Abhaengigkeit von onlyCurrentSymbol wird nur das aktuelle Symbol oder alle Symbole ausgewertet
+    if ((OrderSelect(i,SELECT_BY_POS,MODE_TRADES)==false) || 
+       (onlyCurrentSymbol && (OrderSymbol() != Symbol())) || 
+       ((OrderType() != OP_BUY) && (OrderType() != OP_SELL))) continue;
+  
+    TP = bestimmeTP(Anpassung);
+    SL = bestimmeSL(TP);
+  
     if (SL != OrderStopLoss() || TP != OrderTakeProfit()) {
-      retry = 0;
-      rc = 0;
-      ticket = OrderTicket();
-      while ((rc == 0) && (retry < 10)) {
+      Retry  = 0;
+      rc     = 0;
+      Ticket = OrderTicket();
+      while ((rc == 0) && (Retry < MaxRetry)) {
         RefreshRates();
-        rc = OrderModify(ticket, 0, NormalizeDouble(SL, Digits), NormalizeDouble(TP, Digits), 0, CLR_NONE);
-        if (DebugLevel > 0) Print(Symbol(), " OrderModify(", ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
-        retry++;
+        rc = OrderModify(Ticket, 0, NormalizeDouble(SL,Digits), NormalizeDouble(TP,Digits), 0, CLR_NONE);
+        if (DebugLevel > 0) Print(Symbol(), " OrderModify(", Ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
+        Retry++;
       }
     }
   }
 
   return(0);
+}
+//+------------------------------------------------------------------+
+
+
+//+------------------------------------------------------------------+
+//| Anpassungsfaktor bestimmen                                       |
+//+------------------------------------------------------------------+
+double indFaktor() {
+  double Mom12, Mom20;
+  Mom12 = iMomentum(NULL,0,12,PRICE_CLOSE,0);
+  Mom20 = iMomentum(NULL,0,20,PRICE_CLOSE,0);
+  // Print(Symbol()," Momentum 12: ", Mom12, "  Momentum 20: ", Mom20);
+  return(1);
+}
+
+
+//+------------------------------------------------------------------+
+//| TP bestimmen                                                     |
+//+------------------------------------------------------------------+
+double bestimmeTP(double Anpassung) {
+  double TP, TL, Price, Delta;
+  
+  TP = OrderTakeProfit();
+  if (OrderType() == OP_BUY) {
+    TL    = TrailingLimitPips;
+    Price = Ask;
+  } else {
+    TL    = -TrailingLimitPips;
+    Price = Bid;
+  }
+  
+  if (TP == 0) {
+    // Falls TP nicht gesetzt ist auf Default setzen
+    TP = Price + 2*TL;
+  } else {
+    // Falls der aktuelle Marktpreis sich unter den mit 'Anpassung' 
+    // gewichteten Abstand zum TP bewegt, wird TP angehoben
+    Delta = fabs(TP-Price);
+    if (Delta < fabs(Anpassung*TL)) {
+      TP = Price + Anpassung*TL;
+    }
+  }
+  if (DebugLevel > 1) {
+    if (TP != OrderTakeProfit()) {
+      string typ;
+      if (OrderType() == OP_BUY) {
+        typ = "long";
+      } else {
+        typ = "short";
+      }
+      Print(Symbol()," TP neu festgesetzt für ", typ, " Order: Kaufpreis: ", NormalizeDouble(OrderOpenPrice(), Digits), " Preis: ", Price, " alt TP: ", NormalizeDouble(OrderTakeProfit(), Digits), " neu TP: ", NormalizeDouble(TP, Digits));
+    }
+  }
+
+  return(TP);
+}
+
+
+//+------------------------------------------------------------------+
+//| SL bestimmen                                                     |
+//+------------------------------------------------------------------+
+double bestimmeSL(double TP) {
+  double SL, TL, Price;
+  
+  SL = OrderStopLoss();
+  if (OrderType() == OP_BUY) {
+    TL    = -TrailingLimitPips;
+    Price = Bid;
+  } else {
+    TL    = TrailingLimitPips;
+    Price = Ask;
+  }
+  
+  if (SL == 0) {
+    // Falls SL nicht gesetzt ist auf Default setzen
+    SL = Price + 2*TL;
+  } else {
+    // SL symmetrisch zum TP setzen, aber nur, wenn es 'besser' wird
+    if (OrderType() == OP_BUY) {
+      SL = MathMin(SL, Price - (TP-Price));
+    } else {
+      SL = MathMax(SL, Price - (TP-Price));
+    }
+  }
+  if (DebugLevel > 1) {
+    if (SL != OrderStopLoss()) {
+      string typ;
+      if (OrderType() == OP_BUY) {
+        typ = "long";
+      } else {
+        typ = "short";
+      }
+      Print(Symbol()," SL neu festgesetzt für ", typ, " Order: Kaufpreis: ", NormalizeDouble(OrderOpenPrice(), Digits), " Preis: ", Price, " alt SL: ", NormalizeDouble(OrderStopLoss(), Digits), " neu SL: ", NormalizeDouble(SL, Digits));
+    }
+  }
+
+  return(SL);
 }
