@@ -9,10 +9,22 @@
 #define VERSION     "1.0"
 
 //--- input parameters
-extern double TrailingLimitPips = 150;
-extern int MagicNumber          = 11041963;
-extern int MaxRetry             = 10;
+//- Wenn angegeben werden nur Trades mit dieser Magic Number ¸berwacht
+extern int MagicNumber          = 0;
 extern bool onlyCurrentSymbol   = true;
+
+extern double SLPips            = 30;
+extern double SLPercent         = 0.3;
+extern double TPPips            = 30;
+extern double TPPercent         = 0.3;
+
+extern double SLTrailPips       = 15;
+extern double SLTrailPercent    = 0.15;
+extern double TPTrailPips       = 15;
+extern double TPTrailPercent    = 0.15;
+
+extern int MaxRetry             = 10;
+
 extern int DebugLevel           = 1;
 // Level 0: Keine Debugausgaben
 // Level 1: Nur Orderaenderungen werden protokolliert
@@ -26,8 +38,8 @@ extern int DebugLevel           = 1;
 
 // Imports
 #import "kernel32.dll"
-int  FindFirstFileA(string path,int &answer[]);
-bool FindNextFileA(int handle,int &answer[]);
+int  FindFirstFileA(string path, int &answer[]);
+bool FindNextFileA(int handle, int &answer[]);
 bool FindClose(int handle);
 #import
 
@@ -36,9 +48,15 @@ bool FindClose(int handle);
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
 int init() {
-  Print("Version: ",VERSION);
-  TrailingLimitPips=TrailingLimitPips/pow(10, Digits);
-  Print("TrailingLimitPips: ",TrailingLimitPips);
+  Print("Version: ", VERSION);
+  TPPips      = TPPips/pow(10, Digits-1);
+  TPTrailPips = TPTrailPips/pow(10, Digits-1);
+  SLPips      = SLPips/pow(10, Digits-1);
+  SLTrailPips = SLTrailPips/pow(10, Digits-1);
+  Print("TPPips:      ", TPPips);
+  Print("SLPips:      ", TPPips);
+  Print("TPTrailPips: ", TPTrailPips);
+  Print("SLTrailPips: ", TPTrailPips);
   return(0);
 }
 
@@ -56,6 +74,7 @@ int start() {
 
   int i, rc, Retry, Ticket;
   double SL, TP;
+  MqlTick last_tick;
 
   // Durch Indikator ermittelter Anpassungsfaktor bestimmen
   double Anpassung = indFaktor();
@@ -64,10 +83,34 @@ int start() {
   // Bearbeitung aller offenen Trades
   if (DebugLevel > 2) Print(Symbol()," Orderbuch auslesen (Total alle Symbole: ",OrdersTotal(),")");
   for (i=0; i<OrdersTotal(); i++) {
+    // Nur g¸ltige Trades verarbeiten
+    if (OrderSelect(i, SELECT_BY_POS,MODE_TRADES) == false)  continue;
+    // Nur OP_BUY oder OP_SELL Trades verarbeiten
+    if ((OrderType() != OP_BUY) && (OrderType() != OP_SELL)) continue;
     // in Abhaengigkeit von onlyCurrentSymbol wird nur das aktuelle Symbol oder alle Symbole ausgewertet
-    if ((OrderSelect(i,SELECT_BY_POS,MODE_TRADES)==false) || 
-       (onlyCurrentSymbol && (OrderSymbol() != Symbol())) || 
-       ((OrderType() != OP_BUY) && (OrderType() != OP_SELL))) continue;
+    if (onlyCurrentSymbol && (OrderSymbol() != Symbol()))    continue;
+    // in Abhaengigkeit von MagicNumber werden nur Symbol mit ¸bereinstimmender MagicNumber verarbetet
+    if (MagicNumber && (OrderMagicNumber() != MagicNumber))  continue;
+ 
+    // Falls TPPercent angegeben ist, wird TPPips errechnet
+    if(TPPercent && SymbolInfoTick(Symbol(),last_tick)) {
+      if (OrderType() == OP_BUY) {
+        TPPips = TPPercent/100 * last_tick.ask;
+      } else {
+        TPPips = TPPercent/100 * last_tick.bid;
+      }
+      if (DebugLevel > 0) Print(Symbol(), " TPPips geaendert nach ", TPPips);
+    }
+ 
+    // Falls TPTrailPercent angegeben ist, wird TPTrailPips errechnet
+    if(TPTrailPercent && SymbolInfoTick(Symbol(),last_tick)) {
+      if (OrderType() == OP_BUY) {
+        TPTrailPips = TPTrailPercent/100 * last_tick.ask;
+      } else {
+        TPTrailPips = TPTrailPercent/100 * last_tick.bid;
+      }
+      if (DebugLevel > 0) Print(Symbol(), " TPTrailPips geaendert nach ", TPTrailPips);
+    }
   
     TP = bestimmeTP(Anpassung);
     SL = bestimmeSL(TP);
@@ -95,8 +138,8 @@ int start() {
 //+------------------------------------------------------------------+
 double indFaktor() {
   double Mom12, Mom20;
-  Mom12 = iMomentum(NULL,0,12,PRICE_CLOSE,0);
-  Mom20 = iMomentum(NULL,0,20,PRICE_CLOSE,0);
+  Mom12 = iMomentum(NULL, 0, 12, PRICE_CLOSE, 0);
+  Mom20 = iMomentum(NULL, 0, 20, PRICE_CLOSE, 0);
   // Print(Symbol()," Momentum 12: ", Mom12, "  Momentum 20: ", Mom20);
   return(1);
 }
@@ -106,81 +149,86 @@ double indFaktor() {
 //| TP bestimmen                                                     |
 //+------------------------------------------------------------------+
 double bestimmeTP(double Anpassung) {
-  double TP, TL, Price, Delta;
+  double TakeProfit, TP, TTP, Price, Delta;
   
-  TP = OrderTakeProfit();
+  TakeProfit = OrderTakeProfit();
   if (OrderType() == OP_BUY) {
-    TL    = TrailingLimitPips;
+    TP    = TPPips;
+    TTP   = TPTrailPips;
     Price = Ask;
   } else {
-    TL    = -TrailingLimitPips;
+    TP    = -TPPips;
+    TTP   = -TPTrailPips;
     Price = Bid;
   }
   
-  if (TP == 0) {
-    // Falls TP nicht gesetzt ist auf Default setzen
-    TP = Price + 2*TL;
+  if (TakeProfit == 0) {
+    // Falls TakeProfit nicht gesetzt ist auf Default (TP) setzen
+    TakeProfit = Price + TP;
   } else {
+    // Falls TakeProfit gesetzt ist wird ggf. der TakeProfit nachgezogen: 
     // Falls der aktuelle Marktpreis sich unter den mit 'Anpassung' 
-    // gewichteten Abstand zum TP bewegt, wird TP angehoben
-    Delta = fabs(TP-Price);
-    if (Delta < fabs(Anpassung*TL)) {
-      TP = Price + Anpassung*TL;
+    // gewichteten Abstand zum TakeProfit bewegt, wird TakeProfit angehoben
+    Delta = fabs(TakeProfit-Price);
+    if (Delta < fabs(Anpassung*TTP)) {
+      TakeProfit = Price + Anpassung*TTP;
     }
   }
   if (DebugLevel > 1) {
-    if (TP != OrderTakeProfit()) {
+    if (TakeProfit != OrderTakeProfit()) {
       string typ;
       if (OrderType() == OP_BUY) {
         typ = "long";
       } else {
         typ = "short";
       }
-      Print(Symbol()," TP neu festgesetzt f√ºr ", typ, " Order: Kaufpreis: ", NormalizeDouble(OrderOpenPrice(), Digits), " Preis: ", Price, " alt TP: ", NormalizeDouble(OrderTakeProfit(), Digits), " neu TP: ", NormalizeDouble(TP, Digits));
+      Print(Symbol()," TakeProfit neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", NormalizeDouble(OrderOpenPrice(), Digits), " Preis: ", Price, " alt TakeProfit: ", NormalizeDouble(OrderTakeProfit(), Digits), " neu TakeProfit: ", NormalizeDouble(TakeProfit, Digits));
     }
   }
 
-  return(TP);
+  return(TakeProfit);
 }
 
 
 //+------------------------------------------------------------------+
 //| SL bestimmen                                                     |
 //+------------------------------------------------------------------+
-double bestimmeSL(double TP) {
-  double SL, TL, Price;
+double bestimmeSL(double TakeProfit) {
+  double StopLoss, SP, STP, Price;
   
-  SL = OrderStopLoss();
+  StopLoss = OrderStopLoss();
   if (OrderType() == OP_BUY) {
-    TL    = -TrailingLimitPips;
+    SP    = -SLPips;
+    STP   = -SLTrailPips;
     Price = Bid;
   } else {
-    TL    = TrailingLimitPips;
+    SP    = SLPips;
+    STP   = SLTrailPips;
     Price = Ask;
   }
   
-  if (SL == 0) {
-    // Falls SL nicht gesetzt ist auf Default setzen
-    SL = Price + 2*TL;
+  if (StopLoss == 0) {
+    // Falls StopLoss nicht gesetzt ist auf Default setzen
+    StopLoss = Price + SP;
   } else {
-    // SL symmetrisch zum TP setzen, aber nur, wenn es 'besser' wird
+    // StopLoss symmetrisch zum TP setzen, aber nur, wenn es 'besser' wird
     if (OrderType() == OP_BUY) {
-      SL = MathMin(SL, Price - (TP-Price));
+      StopLoss = MathMin(StopLoss, Price - (TakeProfit-Price));
     } else {
-      SL = MathMax(SL, Price - (TP-Price));
+      StopLoss = MathMax(StopLoss, Price - (TakeProfit-Price));
     }
   }
   if (DebugLevel > 1) {
-    if (SL != OrderStopLoss()) {
+    if (StopLoss != OrderStopLoss()) {
       string typ;
       if (OrderType() == OP_BUY) {
         typ = "long";
       } else {
         typ = "short";
       }
-      Print(Symbol()," SL neu festgesetzt f√ºr ", typ, " Order: Kaufpreis: ", NormalizeDouble(OrderOpenPrice(), Digits), " Preis: ", Price, " alt SL: ", NormalizeDouble(OrderStopLoss(), Digits), " neu SL: ", NormalizeDouble(SL, Digits));
+      Print(Symbol()," StopLoss neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", NormalizeDouble(OrderOpenPrice(), Digits), " Preis: ", Price, " alt StopLoss: ", NormalizeDouble(OrderStopLoss(), Digits), " neu StopLoss: ", NormalizeDouble(StopLoss, Digits));
     }
   }
 
-  return(SL);
+  return(StopLoss);
 }
