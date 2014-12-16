@@ -9,13 +9,14 @@
 #property link      "http://www.mql4zmq.org"
 
 // Runtime options to specify.
-extern string trade_direction = "short";
 extern string ZMQ_transport_protocol = "tcp";
 extern string ZMQ_server_address = "192.168.0.5";
 extern string ZMQ_inbound_port = "1986";
 extern string ZMQ_outbound_port = "1985";
+extern bool Wait_for_Message = true;
 extern int EMA_long = 180;
 extern int EMA_short = 60;
+extern string trade_direction = "short";
 
 // Include the libzmq.dll abstration wrapper.
 #include <mql4zmq.mqh>
@@ -93,11 +94,11 @@ int deinit() {
    
   // Send Notification that bridge is down.
   // Format: bridge|testaccount DOWN
-  string bridge_up = "bridge|" + AccountName() + " DOWN";
-  if(s_send(speaker, bridge_up) == -1)
-    Print("Error sending message: " + bridge_up);
+  string bridge_down = "bridge|" + AccountName() + " DOWN";
+  if(s_send(speaker, bridge_down) == -1)
+    Print("Error sending message: " + bridge_down);
   else
-    Print("Published message: " + bridge_up);
+    Print("Published message: " + bridge_down);
    
   // Protect against memory leaks on shutdown.
   zmq_close(speaker);
@@ -126,8 +127,46 @@ int start() {
   //       
   //       string message2 = s_recv(listener);
   //
-  string message2 = s_recv(listener, ZMQ_NOBLOCK);
+	
+  // First Part: Read message, analyse message and execute command
+  if (Wait_for_Message) {
+    string message2 = s_recv(listener);
+  } else {
+    string message2 = s_recv(listener, ZMQ_NOBLOCK);
+  }
+
+  // Trade wireframe for sending to MetaTrader specification:
+  //
+  // For new trade or order:
+  // cmd|[account name]|[uid] set [trade_type] [pair] [open price] [take profit price] [stop loss price] [lot size]
+  // ex=> 
+  //   cmd|testaccount|fdjksalr38wufsd= set 2 EURUSD 1.25 1.2503 1.2450
+  //   
+  // For updating a trade:
+  // cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price]
+  // ex=> 
+  //   cmd|testaccount|fdjksalr38wufsd= reset 43916144 1.2515 1.2502
+  //
+  // For updating an order:
+  // cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price] [open price]
+  // ex=> 
+  //   cmd|testaccount|fdjksalr38wufsd= reset 43916144 1.2515 1.2502 1.2507
+  //   
+  // For closing a trade or order:
+  // cmd|[account name]|[uid] unset [ticket_id]
+  // ex=> 
+  //   cmd|testaccount|fdjksalr38wufsd= unset 43916144
    
+  // If new trade operation is requested.
+  //
+  // NOTE: MQL4's order type numbers are as follows:
+  // 0 = (MQL4) OP_BUY - buying position,
+  // 1 = (MQL4) OP_SELL - selling position,
+  // 2 = (MQL4) OP_BUYLIMIT - buy limit pending position,
+  // 3 = (MQL4) OP_SELLLIMIT - sell limit pending position,
+  // 4 = (MQL4) OP_BUYSTOP - buy stop pending position,
+  // 5 = (MQL4) OP_SELLSTOP - sell stop pending position.
+	
   if (message2 != "") {                                    // Will return NULL if no message was received.
     Print("Received message: " + message2);
     if (StringFind(message2, "currentPair", 0) != -1) {    // If current currency pair is requested.
@@ -135,44 +174,10 @@ int start() {
       Print("uid: " + uid);                                // ack uid.
       if (send_response(uid, Symbol()) == false)           // Send response.
         Print("ERROR occurred sending response!");
-    }
-      
-    // Trade wireframe for sending to MetaTrader specification:
-    //
-    // For new trade or order:
-    // cmd|[account name]|[uid] set [trade_type] [pair] [open price] [take profit price] [stop loss price] [lot size]
-    // ex=> 
-    //   cmd|testaccount|fdjksalr38wufsd= set 2 EURUSD 1.25 1.2503 1.2450
-    //   
-    // For updating a trade:
-    // cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price]
-    // ex=> 
-    //   cmd|testaccount|fdjksalr38wufsd= reset 43916144 1.2515 1.2502
-    //
-    // For updating an order:
-    // cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price] [open price]
-    // ex=> 
-    //   cmd|testaccount|fdjksalr38wufsd= reset 43916144 1.2515 1.2502 1.2507
-    //   
-    // For closing a trade or order:
-    // cmd|[account name]|[uid] unset [ticket_id]
-    // ex=> 
-    //   cmd|testaccount|fdjksalr38wufsd= unset 43916144
-     
-    // If new trade operation is requested.
-    //
-    // NOTE: MQL4's order type numbers are as follows:
-    // 0 = (MQL4) OP_BUY - buying position,
-    // 1 = (MQL4) OP_SELL - selling position,
-    // 2 = (MQL4) OP_BUYLIMIT - buy limit pending position,
-    // 3 = (MQL4) OP_SELLLIMIT - sell limit pending position,
-    // 4 = (MQL4) OP_BUYSTOP - buy stop pending position,
-    // 5 = (MQL4) OP_SELLSTOP - sell stop pending position.
-	
-    if (StringFind(message2, "reset", 0) != -1) {
+    } else if (StringFind(message2, "reset", 0) != -1) {
       uid = message_get_uid(message2);                     // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price] [optional open price]"
       Print("uid: " + uid);                                // ack uid.
-      string trade_update_settings[4] = {"ticket_id", "take_profit", "stop_loss", "open_price"};// Initialize array to hold the extracted settings.
+      string trade_update_settings[4] = {"ticket_id", "take_profit", "stop_loss", "open_price"}; // Initialize array to hold the extracted settings.
       keyword = "reset";                                   // Pull out the trade settings.
       start_position = StringFind(message2, keyword, 0) + StringLen(keyword) + 1;
       end_position = StringFind(message2, " ", start_position + 1);
@@ -241,7 +246,7 @@ int start() {
         close_ticket = OrderDelete(OrderTicket());
       }
          
-      if(close_ticket == false) {
+      if (close_ticket == false) {
         Print("OrderSend failed with error #",GetLastError());
         return(0);
       } else {
@@ -258,12 +263,12 @@ int start() {
       start_position = StringFind(message2, keyword, 0) + StringLen(keyword) + 1;
       end_position = StringFind(message2, " ", start_position + 1);
  
-      for(i = 0; i < ArraySize(trade_settings); i++) {
+      for (i = 0; i < ArraySize(trade_settings); i++) {
         trade_settings[i] = StringSubstr(message2, start_position, end_position - start_position);
             
         // Protect against looping back around to the beginning of the string by exiting if the new
         // start position would be a lower index then the current one.
-        if(StringFind(message2, " ", end_position) < start_position)
+        if (StringFind(message2, " ", end_position) < start_position)
           break;
         else { 
           start_position = StringFind(message2, " ", end_position);
@@ -293,9 +298,7 @@ int start() {
         if(send_response(uid, "Order has been processed.") == false) // Send response.
           Print("ERROR occurred sending response!");
       }
-    }
-      
-    if (StringFind(message2, "Draw", 0) != -1) {           // If a new element to be drawen is requested.
+    } else if (StringFind(message2, "Draw", 0) != -1) {    // If a new element to be drawen is requested.
       uid = message_get_uid(message2);                     // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] Draw [obj_type] [open time] [open price] [close time] [close price] [prediction]"
       string object_settings[7] = {"object_type", "window", "open_time", "open_price" ,"close_time", "close_price", "prediction"}; // Initialize array to hold the extracted settings. 
       keyword = "Draw";                                    // Pull out the drawing settings.
@@ -306,8 +309,8 @@ int start() {
       for (i = 0; i < ArraySize(object_settings); i++) {
         object_settings[i] = StringSubstr(message2, start_position, end_position - start_position);
             
-        if(StringFind(message2, " ", end_position) < start_position) // Protect against looping back around to the beginning of the string by exiting if the new
-          break;                                                     // start position would be a lower index then the current one.
+        if (StringFind(message2, " ", end_position) < start_position) // Protect against looping back around to the beginning of the string by exiting if the new
+          break;                                                      // start position would be a lower index then the current one.
         else { 
           start_position = StringFind(message2, " ", end_position);
           end_position = StringFind(message2, " ", start_position + 1);
@@ -327,9 +330,9 @@ int start() {
         // 'prediction' keyword will still occupy the array element and we need to set to Gray.
         if (StringFind(object_settings[6], "prediction", 0) != -1) {
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, Gray);
-        } else if(StrToDouble(object_settings[6]) > 0.5) {
+        } else if (StrToDouble(object_settings[6]) > 0.5) {
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, CadetBlue);
-        } else if(StrToDouble(object_settings[6]) < 0.5) {
+        } else if (StrToDouble(object_settings[6]) < 0.5) {
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, IndianRed);
         } else
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, Gray);
@@ -339,11 +342,13 @@ int start() {
     return(0);
   }
    
+  // Second Part: Hedge Orders: Set TP/SL
 
-  string current_tick = "tick|" + AccountName() + " " + Symbol() + " " + Bid + " " + Ask + " " + Time[0]; // Publish current tick value.
-  string current_orders = lookup_open_orders();                                                           // Publish the currently open orders.
+  // Third Part: Deliver new Tick Info, Account Info, Order Info and EMA Info back
+  string current_tick         = "tick|" + AccountName() + " " + Symbol() + " " + Bid + " " + Ask + " " + Time[0]; // Publish current tick value.
+  string current_orders       = lookup_open_orders();                                                             // Publish the currently open orders.
   string current_account_info = "account|" + AccountName() + " " + AccountLeverage() + " " + AccountBalance() + " " + AccountMargin() + " " + AccountFreeMargin(); // Publish account info.
-  string current_ema_info = "ema|" + AccountName() + " " + Symbol() + " " + EMA_long + " " + iMA(Symbol(),0,EMA_long,0,MODE_EMA,PRICE_MEDIAN,0) + " " + EMA_short + " " + iMA(Symbol(),0,EMA_short,0,MODE_EMA,PRICE_MEDIAN,0); // Publish currently requested EMA's.
+  string current_ema_info     = "ema|" + AccountName() + " " + Symbol() + " " + EMA_long + " " + iMA(Symbol(),0,EMA_long,0,MODE_EMA,PRICE_MEDIAN,0) + " " + EMA_short + " " + iMA(Symbol(),0,EMA_short,0,MODE_EMA,PRICE_MEDIAN,0); // Publish currently requested EMA's.
    
   // Publish data.
   //
@@ -394,7 +399,7 @@ string lookup_open_orders() {
     
   for (int position=0; position < total_orders; position++) { // Build a json-like string for each order and add it to eh current_orders return string. 
     if (OrderSelect(position,SELECT_BY_POS)==false) continue;
-    current_orders = current_orders + "{:pair => \'" + OrderSymbol() + "\', :type => \'" + OrderType() + "\', :ticket_id => \'" + OrderTicket() + "\', :open_price => \'" + OrderOpenPrice() + "\', :take_profit => \'" + OrderTakeProfit() + "\', :stop_loss => \'" + OrderStopLoss() + "\', :open_time => \'" + OrderOpenTime() + ", :expire_time => \'" + OrderExpiration() + "\', :lots => \'" + OrderLots() + "\'}\n";
+    current_orders = current_orders + "{:pair => \'" + OrderSymbol() + "\', :type => \'" + OrderType() + "\', :ticket_id => \'" + OrderTicket() + "\', :open_price => \'" + OrderOpenPrice() + "\', :take_profit => \'" + OrderTakeProfit() + "\', :stop_loss => \'" + OrderStopLoss() + "\', :open_time => \'" + OrderOpenTime() + "\', :expire_time => \'" + OrderExpiration() + "\', :lots => \'" + OrderLots() + "\'}\n";
   }
       
   return(current_orders);                                  // Return the completed string.
