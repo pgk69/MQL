@@ -16,6 +16,7 @@ extern string ZMQ_outbound_port = "1985";
 extern bool Wait_for_Message = true;
 extern int EMA_long = 180;
 extern int EMA_short = 60;
+extern int MagicNumber = 11041963;
 extern string trade_direction = "short";
 
 // Include the libzmq.dll abstration wrapper.
@@ -24,8 +25,8 @@ extern string trade_direction = "short";
 //+------------------------------------------------------------------+
 //| variable definitions                                             |
 //+------------------------------------------------------------------+
-int speaker,listener,context,i,start_position,end_position,ticket;
-string outbound_connection_string,inbound_connection_string,keyword,uid,command_string;
+int speaker, listener, context, i, start_position, end_position, ticket;
+string outbound_connection_string, inbound_connection_string, uid, command_string;
 
 
 //+------------------------------------------------------------------+
@@ -117,6 +118,33 @@ int start() {
 
 //----
    
+  struct trade_settings {
+    string ticket_id,	  // Ticket ID  (123456789)
+	string magic_number,   // MagicNumber
+    string type,	      // Type 
+                          // 0 = (MQL4) OP_BUY - buying position,
+                          // 1 = (MQL4) OP_SELL - selling position,
+                          // 2 = (MQL4) OP_BUYLIMIT - buy limit pending position,
+                          // 3 = (MQL4) OP_SELLLIMIT - sell limit pending position,
+                          // 4 = (MQL4) OP_BUYSTOP - buy stop pending position,
+                          // 5 = (MQL4) OP_SELLSTOP - sell stop pending position.
+
+    string pair;	      // Symbol (EURUSD)
+    string open_price;	  // Open Price (1.24)
+    string splipage;	  // Max. Abweichung in Prozent (0.03)
+    string take_profit;	  // Take Profit (1.255)
+    string stop_loss;	  // Stop Loss (1.235)
+    string lot_size;	  // Lot Size (0.5)
+    string object_type;	  // Object Type
+    string window;	      // Window
+    string open_time;	  // Open Time
+    string close_time;	  // CLose Time
+    string close_price;	  // Close Price
+    string prediction	  // Prediction
+  } settings;
+  
+  settings = {"", "MagicNumer", "", "", "", "", "", "", "", "", "", "", "", "", ""}; 
+  
   // Note: If we do NOT specify ZMQ_NOBLOCK it will wait here until 
   //       we recieve a message. This is a problem as this function
   //       will effectively block the MQL4 'Start' function from firing
@@ -125,14 +153,14 @@ int start() {
   //       receive messages (doesn't have to wait until next tick) then
   //       change the below line to:
   //       
-  //       string message2 = s_recv(listener);
+  //       string message = s_recv(listener);
   //
 	
   // First Part: Read message, analyse message and execute command
   if (Wait_for_Message) {
-    string message2 = s_recv(listener);
+    string message = s_recv(listener);
   } else {
-    string message2 = s_recv(listener, ZMQ_NOBLOCK);
+    string message = s_recv(listener, ZMQ_NOBLOCK);
   }
 
   // Trade wireframe for sending to MetaTrader specification:
@@ -167,87 +195,65 @@ int start() {
   // 4 = (MQL4) OP_BUYSTOP - buy stop pending position,
   // 5 = (MQL4) OP_SELLSTOP - sell stop pending position.
 	
-  if (message2 != "") {                                    // Will return NULL if no message was received.
-    Print("Received message: " + message2);
-    if (StringFind(message2, "currentPair", 0) != -1) {    // If current currency pair is requested.
-      uid = message_get_uid(message2);                     // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] currentPair"
-      Print("uid: " + uid);                                // ack uid.
+  if (message != "") {                                     // Will return NULL if no message was received.
+    Print("Received message: " + message);
+    message_get_settings(message, settings);               // Determine Message settings
+
+    // cmd currentPair: Ask for current Pair
+    if (StringFind(message, "currentPair", 0) != -1) {     // cmd currentPair; If current currency pair is requested.
       if (send_response(uid, Symbol()) == false)           // Send response.
         Print("ERROR occurred sending response!");
-    } else if (StringFind(message2, "reset", 0) != -1) {
-      uid = message_get_uid(message2);                     // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price] [optional open price]"
-      Print("uid: " + uid);                                // ack uid.
-      string trade_update_settings[4] = {"ticket_id", "take_profit", "stop_loss", "open_price"}; // Initialize array to hold the extracted settings.
-      keyword = "reset";                                   // Pull out the trade settings.
-      start_position = StringFind(message2, keyword, 0) + StringLen(keyword) + 1;
-      end_position = StringFind(message2, " ", start_position + 1);
-         
-      for (i = 0; i < ArraySize(trade_update_settings); i++) {
-        trade_update_settings[i] = StringSubstr(message2, start_position, end_position - start_position);
-            
-        // Protect against looping back around to the beginning of the string by exiting if the new
-        // start position would be a lower index then the current one.
-        if (StringFind(message2, " ", end_position) < start_position)
-          break;
-        else { 
-          start_position = StringFind(message2, " ", end_position);
-          end_position = StringFind(message2, " ", start_position + 1);
+    
+    // cmd reset: Set new Trade Parameter
+    } else if (StringFind(message, "reset", 0) != -1) {    // cmd reset
+      bool update_ticket = false;
+      if (OrderSelect(StrToInteger(settings.ticket_id), SELECT_BY_TICKET)) { // Select the requested order.
+        if (settings.open_price == "") {                     // Since 'open_price' was not received, we know that we're updating a trade.
+          update_ticket = OrderModify(OrderTicket(),         // Send the trade modify instructions.
+                                      OrderOpenPrice(),      // Since 'open_price' was received, we know that we're updating an order.
+                                      NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
+                                      NormalizeDouble(StrToDouble(settings.take_profit), Digits), 
+                                      0,
+                                      Blue);
+        } else {
+          Print(NormalizeDouble(StrToDouble(settings.open_price), Digits));
+          update_ticket = OrderModify(OrderTicket(),         // Send the order modify instructions.
+                                      NormalizeDouble(StrToDouble(settings.open_price), Digits),
+                                      NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
+                                      NormalizeDouble(StrToDouble(settings.take_profit), Digits), 
+                                      0, 
+                                      Blue);
         }
-      }
-      OrderSelect(StrToInteger(trade_update_settings[0]),SELECT_BY_TICKET); // Select the requested order.
-      bool update_ticket = false;                          // Since 'open_price' was not received, we know that we're updating a trade.
-      if (trade_update_settings[3] == "open_price") {
-        update_ticket = OrderModify(OrderTicket(),         // Send the trade modify instructions.
-                                    OrderOpenPrice(),      // Since 'open_price' was received, we know that we're updating an order.
-                                    NormalizeDouble(StrToDouble(trade_update_settings[2]), Digits),
-                                    NormalizeDouble(StrToDouble(trade_update_settings[1]), Digits), 
-                                    0,
-                                    Blue);
-      } else {
-        Print(NormalizeDouble(StrToDouble(trade_update_settings[3]), Digits));
-        update_ticket = OrderModify(OrderTicket(),         // Send the order modify instructions.
-                                    NormalizeDouble(StrToDouble(trade_update_settings[3]), Digits),
-                                    NormalizeDouble(StrToDouble(trade_update_settings[2]), Digits),
-                                    NormalizeDouble(StrToDouble(trade_update_settings[1]), Digits), 
-                                    0, 
-                                    Blue);
       }
                   
       if (update_ticket == false) {
-        Print("OrderSend failed with error #",GetLastError());
+        Print("OrderSend/OrderSelect failed with error #",GetLastError());
         return(0);
       } else {
-        if (trade_update_settings[3] == "open_price") {
-          Print("Trade: " + trade_update_settings[0] + " updated stop loss to: " + trade_update_settings[2] + " and take profit to: " + trade_update_settings[1]);
+    	if (settings.open_price == "") {
+    	  Print("Trade: " + settings.ticket_id + " updated stop loss to: " + settings.stop_loss + " and take profit to: " + settings.take_profit);
         } else {
-          Print("Order: " + trade_update_settings[0] + " updated stop loss to: " + trade_update_settings[2] + ", take profit to: " + trade_update_settings[1] + ", and open price to: " + trade_update_settings[3]);
+          Print("Order: " + settings.ticket_id + " updated stop loss to: " + settings.stop_loss + ", take profit to: " + settings.take_profit + ", and open price to: " + settings.open_price);
         }
             
         if (send_response(uid, "Order has been processed.") == false) // Send response.
           Print("ERROR occurred sending response!");
       }
-    } else if (StringFind(message2, "unset", 0) != -1) {
-      uid = message_get_uid(message2);                     // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] unset [ticket_id]"
-      Print("uid: " + uid);                                // ack uid.
-      keyword = "unset";                                   // Pull out the trade settings.
-      start_position = StringFind(message2, keyword, 0) + StringLen(keyword) + 1;
-      end_position = StringFind(message2, " ", start_position + 1);
-      string ticket_id = StringSubstr(message2, start_position, end_position - start_position);
-            
-      OrderSelect(StrToInteger(ticket_id),SELECT_BY_TICKET);// Select the requested order.
-
-      bool close_ticket;                                   // Send the oder close instructions.
-         
-      if (OrderType() == OP_BUY) {
-        close_ticket = OrderClose(OrderTicket(), OrderLots(), Bid, 3, Red);
-      } else if (OrderType() == OP_SELL) {
-        close_ticket = OrderClose(OrderTicket(), OrderLots(), Ask, 3, Red);
-      } else if (OrderType() == OP_BUYLIMIT || OrderType() == OP_BUYSTOP || OrderType() == OP_SELLLIMIT || OrderType() == OP_SELLSTOP) {
-        close_ticket = OrderDelete(OrderTicket());
-      }
-         
+      
+    // cmd unset: Close Trade
+    } else if (StringFind(message, "unset", 0) != -1) {    // cmd unset
+      bool close_ticket  = false;
+      if (OrderSelect(StrToInteger(settings.ticket_id), SELECT_BY_TICKET)) { // Select the requested order and send the oder close instructions.
+        if (OrderType() == OP_BUY) {
+          close_ticket = OrderClose(OrderTicket(), OrderLots(), Bid, 3, Red);
+        } else if (OrderType() == OP_SELL) {
+          close_ticket = OrderClose(OrderTicket(), OrderLots(), Ask, 3, Red);
+        } else if (OrderType() == OP_BUYLIMIT || OrderType() == OP_BUYSTOP || OrderType() == OP_SELLLIMIT || OrderType() == OP_SELLSTOP) {
+          close_ticket = OrderDelete(OrderTicket());
+        }
+      }   
       if (close_ticket == false) {
-        Print("OrderSend failed with error #",GetLastError());
+        Print("OrderSend/OrderSelect failed with error #",GetLastError());
         return(0);
       } else {
         Print("Closed trade: " + ticket_id);
@@ -255,84 +261,52 @@ int start() {
         if (send_response(uid, "Order has been processed.") == false) // Send response.
           Print("ERROR occurred sending response!");
       }
-    } else if (StringFind(message2, "set", 0) != -1) {
-      uid = message_get_uid(message2);                     // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] set [trade_type] [pair] [open price] [take profit price] [stop loss price] [lot_size]"
-      Print("uid: " + uid);                                // ack uid.
-      string trade_settings[6] = {"type", "pair", "open_price" ,"take_profit", "stop_loss", "lot_size"}; // Initialize array to hold the extracted settings. 
-      keyword = "set";                                     // Pull out the trade settings.
-      start_position = StringFind(message2, keyword, 0) + StringLen(keyword) + 1;
-      end_position = StringFind(message2, " ", start_position + 1);
- 
-      for (i = 0; i < ArraySize(trade_settings); i++) {
-        trade_settings[i] = StringSubstr(message2, start_position, end_position - start_position);
-            
-        // Protect against looping back around to the beginning of the string by exiting if the new
-        // start position would be a lower index then the current one.
-        if (StringFind(message2, " ", end_position) < start_position)
-          break;
-        else { 
-          start_position = StringFind(message2, " ", end_position);
-          end_position = StringFind(message2, " ", start_position + 1);
-        }
-      }
+
+    // cmd set: Open Trade
+    } else if (StringFind(message, "set", 0) != -1) {      // cmd set
+      Print(settings.type + " " + settings.pair + ", Open: " + settings.open_price + ", TP: " + settings.take_profit + ", SL: " + settings.stop_loss + ", Lots: " + settings.lot_size);
+
+      // @@@ Anhand des Aktuellen Preises und settings.slipage entscheiden, ob die Order marktausgefuehrt wird oder
+      // als BUYLIMIT/STOPLIMIT oder garnicht. Eventuell kann der 5. Parameter von OrderSend auch verwendet werden
+      
+      Print(NormalizeDouble(StrToDouble(settings.take_profit), Digits)); // Open trade.
          
-      Print(trade_settings[0] + " " + trade_settings[1] + ", Open: " + trade_settings[2] + ", TP: " + trade_settings[3] + ", SL: " + trade_settings[4] + ", Lots: " + trade_settings[5]);
-         
-      Print(NormalizeDouble(StrToDouble(trade_settings[3]), Digits)); // Open trade.
-         
-      ticket = OrderSend(StringTrimLeft(trade_settings[1]),
-                                        StrToInteger(trade_settings[0]), 
-                                        NormalizeDouble(StrToDouble(trade_settings[5]), Digits),
-                                        NormalizeDouble(StrToDouble(trade_settings[2]), Digits),
-                                        3,
-                                        NormalizeDouble(StrToDouble(trade_settings[4]), Digits),
-                                        NormalizeDouble(StrToDouble(trade_settings[3]), Digits),
-                                        NULL,
-                                        0,
-                                        TimeCurrent() + 3600,
-                                        Green); 
-      if (ticket<0) {
+      ticket = OrderSend(StringTrimLeft(settings.pair),
+                         StrToInteger(settings.type), 
+                         NormalizeDouble(StrToDouble(settings.lot_size), Digits),
+                         NormalizeDouble(StrToDouble(settings.open_price), Digits),
+                         3,
+                         NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
+                         NormalizeDouble(StrToDouble(settings.take_profit), Digits),
+                         NULL,
+						 StrToInteger(settings.magicnumber),
+                         TimeCurrent() + 3600,
+                         Green); 
+      if (ticket < 0) {
         Print("OrderSend failed with error #",GetLastError());
         return(0);
       } else { 
-        if(send_response(uid, "Order has been processed.") == false) // Send response.
+        if (send_response(uid, "Order has been processed.") == false) // Send response.
           Print("ERROR occurred sending response!");
       }
-    } else if (StringFind(message2, "Draw", 0) != -1) {    // If a new element to be drawen is requested.
-      uid = message_get_uid(message2);                     // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] Draw [obj_type] [open time] [open price] [close time] [close price] [prediction]"
-      string object_settings[7] = {"object_type", "window", "open_time", "open_price" ,"close_time", "close_price", "prediction"}; // Initialize array to hold the extracted settings. 
-      keyword = "Draw";                                    // Pull out the drawing settings.
-         
-      start_position = StringFind(message2, keyword, 0) + StringLen(keyword) + 1;
-      end_position = StringFind(message2, " ", start_position + 1);
 
-      for (i = 0; i < ArraySize(object_settings); i++) {
-        object_settings[i] = StringSubstr(message2, start_position, end_position - start_position);
-            
-        if (StringFind(message2, " ", end_position) < start_position) // Protect against looping back around to the beginning of the string by exiting if the new
-          break;                                                      // start position would be a lower index then the current one.
-        else { 
-          start_position = StringFind(message2, " ", end_position);
-          end_position = StringFind(message2, " ", start_position + 1);
-        }
-      }
-         
-      Print("uid: " + uid);                                // ack uid.
+    // cmd Draw: Draw Object
+    } else if (StringFind(message, "Draw", 0) != -1) {     // cmd Draw; If a new element to be drawen is requested.
       double bar_uid = MathRand()%10001/10000.0;           // Generate UID
             
       // Draw the rectangle object.
-      Print("Drawing: ", object_settings[0], " ", object_settings[1], " ", object_settings[2], " ", object_settings[3], " ", object_settings[4], " ", object_settings[5], " ", object_settings[6]);
-      if (!ObjectCreate("bar:" + bar_uid, draw_object_string_to_int(object_settings[0]), StrToInteger(object_settings[1]), StrToInteger(object_settings[2]), StrToDouble(object_settings[3]), StrToInteger(object_settings[4]), StrToDouble(object_settings[5]))) {
+      Print("Drawing: ", settings.type, " ", settings.window, " ", settings.open_time, " ", settings.open_price, " ", settings.close_time, " ", settings.close_price, " ", settings.prediction);
+      if (!ObjectCreate("bar:" + bar_uid, draw_object_string_to_int(settings.type), StrToInteger(settings.window), StrToInteger(settings.open_time), StrToDouble(settings.open_price), StrToInteger(settings.close_time), StrToDouble(settings.close_price))) {
         Print("error: cannot create object! code #",GetLastError());
         send_response(uid, false);                         // Send response.
       } else {
         // Color the bar based on the predicted direction. If no prediction was sent than the 
         // 'prediction' keyword will still occupy the array element and we need to set to Gray.
-        if (StringFind(object_settings[6], "prediction", 0) != -1) {
+        if (settings.prediction == "") {
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, Gray);
-        } else if (StrToDouble(object_settings[6]) > 0.5) {
+        } else if (StrToDouble(settings.prediction) > 0.5) {
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, CadetBlue);
-        } else if (StrToDouble(object_settings[6]) < 0.5) {
+        } else if (StrToDouble(settings.prediction) < 0.5) {
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, IndianRed);
         } else
           ObjectSet("bar:" + bar_uid, OBJPROP_COLOR, Gray);
@@ -343,6 +317,7 @@ int start() {
   }
    
   // Second Part: Hedge Orders: Set TP/SL
+  // @@@ Include OrderManager und Aufruf OrderManager
 
   // Third Part: Deliver new Tick Info, Account Info, Order Info and EMA Info back
   string current_tick         = "tick|" + AccountName() + " " + Symbol() + " " + Bid + " " + Ask + " " + Time[0]; // Publish current tick value.
@@ -378,14 +353,48 @@ int start() {
 }
   
 //+------------------------------------------------------------------+
+//| Analyses the messages and collect Ticketparameter
+//|      => "cmd|[account name]|[uid] [some command]
+//| Returns true if Order could be selected else false    
+//+------------------------------------------------------------------+
+string message_get_settings(string mymessage, trade_settings settings) {
+  bool rc = false;
+  
+  uid = message_get_uid(mymessage);                    // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price] [optional open price]"
+  Print("uid: " + uid);                                // ack uid.
+  
+  //  cmd|[account name]|[uid] [cmd] {:pair => '[pair]', :type => '[type]', :ticket_id => '[ticket_id]', :open_price => '[open_price]', :take_profit => '[take_profit]', :stop_loss => '[stop_loss]', :open_time => '[open_time]', :expire_time => '[expire_time]', :lots => '[lots]'}
+  start_position = StringFind(mymessage, "{", 0) + 1;
+  end_position = StringFind(mymessage, "}", start_position + 1);
+  
+  if (end_position > start_position) {
+	mymessage = StringSubstr(mymessage, start_position, end_position - start_position);
+	start_position = StringFind(mymessage, ":", 0) + 1;
+	end_position   = StringFind(mymessage, " ", start_position + 1);
+    if (end_position > start_position) {
+	  key = StringSubstr(parameter, start_position, end_position - start_position);
+      start_position = StringFind(mymessage, "'", end_position) + 1;
+      end_position   = StringFind(mymessage, "'", start_position + 1);
+      if (end_position > start_position) {
+        value = StringSubstr(mymessage, start_position, end_position - start_position);
+        mymessage = StringSubstr(mymessage, end_position);
+        // @@@ Hoffentlich klappt das! Gemeint ist bei key=ticket_id und value=1234567  :  settings.ticket_id = 1234567
+        settings.key = value;
+      }
+    }
+  }
+} 
+
+
+//+------------------------------------------------------------------+
 //| Pulls out the UID for the message. Messages are fomatted:
 //|      => "cmd|[account name]|[uid] [some command]
 //+------------------------------------------------------------------+
-string message_get_uid(string message) {
+string message_get_uid(string mymessage) {
   string uid_start_string = "cmd|" + AccountName() + "|";  // Pull out request uid. Message is formatted: "cmd|[accountname]|[uid] [some command]"
-  int uid_start = StringFind(message, uid_start_string, 0) + StringLen(uid_start_string);
-  int uid_end = StringFind(message, " ", 0) - uid_start;
-  string uid = StringSubstr(message, uid_start, uid_end);
+  int uid_start = StringFind(mymessage, uid_start_string, 0) + StringLen(uid_start_string);
+  int uid_end = StringFind(mymessage, " ", 0) - uid_start;
+  string uid = StringSubstr(mymessage, uid_start, uid_end);
   return(uid);                                             // Return the UID
 } 
 
