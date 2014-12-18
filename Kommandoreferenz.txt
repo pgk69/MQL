@@ -1,29 +1,69 @@
 EA an Perl:
 
   Status:
-    Bridge up:   bridge|[account name] UP [pair] [Timestamp]
-                 bridge|testaccount UP EURUSD 1355775144
-
-    Bridge down: bridge|[account name] DOWN
-                 bridge|testaccount DOWN
+    Bridge up:   status|[account name] bridge {"status": "up",
+                                               "pair":   "[gehandeltes Symbol]", 
+                                               "time":   "[aktueller Zeitstempel]"}
+                 status|testaccount bridge {"status": "up",
+                                            "pair":   "EURUSD", 
+                                            "time":   "1355775144"}
+                                            
+    Bridge down: status|[account name] bridge {"status": "down"}
+                 status|testaccount bridge {"status": "down"}
 
 
   Infos:
-    Tick:        tick|[account name] [pair] [Bid] [Ask]  [Timestamp]
-                 tick|testaccount EURUSD 1.2405 1.2401 1355775144
+    Tick:        info|[account name] tick {"pair": "[gehandeltes Symbol]",
+                                           "bid":  "[Geldkurs]",
+                                           "ask":  "[Briefkurs]",
+                                           "time": "[aktueller Zeitstempel]"}
+                 info|[account name] tick {"pair": "EURUSD",
+                                           "bid":  "1.2405",
+                                           "ask":  "1.2401",
+                                           "time": "1355775144"}
 
-    Accountinfo  account|[account name] [Leverage] [Balance] [Margin] [freie Margin]          
-                 account|testaccount 400 24005 200 23700
+    Accountinfo  info|[account name] account {"leverage":   "[Leverage]",
+                                              "balance":    "[Balance]",
+                                              "margin":     "[Margin]",
+                                              "freemargin": "[freie Margin]"}          
+                 info|[account name] account {"leverage":   "400",
+                                              "balance":    "24005.49",
+                                              "margin":     "240.54",
+                                              "freemargin": "23543,44"}          
 
-    EMAinfo      ema|[account name] [Pair] [EMA_long] [iMAlong] [EMA_short] [iMAshort]          
-                 ema|testaccount EURUSD 1 2 3 4
-
-    Orders:      orders|[account name] {:pair => '[pair]', :type => '[Ordertyp]', :ticket_id => '[ticket_id]', :open_price => '[open_price]', :take_profit => '[TakeProfit]', :stop_loss => '[StoppLoss]', :open_time => '[OpenTime], :expire_time => '[ExpiryTime]', :lots => '[Lots]'}
-                 orders|testaccount {:pair => 'EURUSD', :type => 'OP_BUY', :ticket_id => '43916144', :open_price => '1.2405', :take_profit => '1.2430', :stop_loss => '1.2305', :open_time => '1355773442', :expire_time => '1355786556', :lots => '0.5'}
+    EMAinfo      info|[account name] ema {"pair":      "[gehandeltes Symbol]",
+                                          "ema_long":  "[EMA long]",
+                                          "ima_long":  "[iMA long]",
+                                          "ema_short": "[EMA short]",
+                                          "ima_short": "[iMA short]"}          
+                 info|[account name] ema {"pair":      "EUSUSD",
+                                          "ema_long":  "1",
+                                          "ima_long":  "7",
+                                          "ema_short": "3",
+                                          "ima_short": "5"}          
+                 
+    Orders:      info|[account name] order {"pair":        "[gehandeltes Symbol]", 
+                                            "type":        "[Orderart]", 
+                                            "ticket":      "[Ticket ID]", 
+                                            "open_price":  "[Eröffnungskurs]", 
+                                            "take_profit": "[TakeProfit]", 
+                                            "stop_loss":   "[StoppLoss]", 
+                                            "open_time":   "[Eröffnungszeit]",  
+                                            "expire_time": "[Gültigkeitsdauer]", 
+                                            "lot":         "[Anzahl Lots]"}
+                 info|testaccount order {"pair":        "EURUSD", 
+                                         "type":        "OP_BUY", 
+                                         "ticket":      "43916144", 
+                                         "open_price":  "1.2405", 
+                                         "take_profit": "1.2430", 
+                                         "stop_loss":   "1.2305", 
+                                         "open_time":   "1355773442", 
+                                         "expire_time": "1355786556", 
+                                         "lot":         "0.5"}
          
   
   Trading Ergebnis:
-    Response:   response|[account name]|[uid] [response]
+    Response:   response|[account name]|[uid] {"response": "[response]"}
     
     Responses:  true
                 false
@@ -33,16 +73,35 @@ EA an Perl:
   
 Perl an EA:
 
-  Kommando currentPair:
-    Request cur. Pair: cmd|[account name]|[uid] currentPair
-                       cmd|testaccount|fdjksalr38wufsd= currentPair
+  Kommando get:
+
+    Request Value: cmd|[account name]|[uid] get {"value": "[abgefragter Wert]"}
+                   cmd|testaccount|fdjksalr38wufsd= get {"value": "pair"}
                        
-    Response: [pair]
+    Response: [Ergebnis]
+              EURUSD
+
 
   Kommando set:
-  
-    New Trade/Order:   cmd|[account name]|[uid] set [trade_type] [pair] [open price] [take profit price] [stop loss price] [lot size]
-                       cmd|testaccount|fdjksalr38wufsd= set 2 EURUSD 1.25 1.2503 1.2450
+
+    New Trade/Order: cmd|[account name]|[uid] set {"type":         "[Orderart]", 
+                                                   "pair":         "[gehandeltes Symbol]", 
+                                                   "open_price":   "[Eröffnungskurs]",
+                                                   "slippage":     "[Slippage]", 
+                                                   "magic_number": "[Magic Number]", 
+                                                   "comment":      "[Kommentar]", 
+                                                   "take_profit":  "[TakeProfit]", 
+                                                   "stop_loss":    "[StoppLoss]", 
+                                                   "lot":          "[Anzahl Lots]"}
+                     cmd|testaccount|fdjksalr38wufsd= set {"type":         "2", 
+                                                           "pair":         "EURUSD", 
+                                                           "open_price":   "1.25", 
+                                                           "slippage":     "0.1", 
+                                                           "magic_number": "11041963", 
+                                                           "comment":      "Opened by FxAssist",  
+                                                           "take_profit":  "1.2503", 
+                                                           "stop_loss":    "1.2450", 
+                                                           "lot":          "0.5"}
 
     Response: Order has been processed.
                 
@@ -54,26 +113,47 @@ Perl an EA:
        4 = (MQL4) OP_BUYSTOP   - buy stop pending position,
        5 = (MQL4) OP_SELLSTOP  - sell stop pending position.
   
+  
   Kommando reset:
    
-    Update Trade:      cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price]
-                       cmd|testaccount|fdjksalr38wufsd= reset 43916144 1.2515 1.2502
+    Update Trade:  cmd|[account name]|[uid] reset {"ticket":      "[Ticket ID]", 
+                                                   "take_profit": "[TakeProfit]", 
+                                                   "stop_loss":   "[StoppLoss]"}
+                   cmd|testaccount|fdjksalr38wufsd= reset {"ticket":      "43916144", 
+                                                           "take_profit": "1.2515", 
+                                                           "stop_loss":   "1.2502"}
     
-    Update Order:      cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price] [open price]
-                       cmd|testaccount|fdjksalr38wufsd= reset 43916144 1.2515 1.2502 1.2507
+    Update Order neu:  cmd|[account name]|[uid] reset {"ticket":      "[Ticket ID]", 
+                                                       "take_profit": "[TakeProfit]", 
+                                                       "stop_loss":   "[StoppLoss]",
+                                                       "open_price":  "[Eröffnungskurs]"}
+                       cmd|testaccount|fdjksalr38wufsd= reset {"ticket":      "43916144", 
+                                                               "take_profit": "1.2515", 
+                                                               "stop_loss":   "1.2502",
+                                                               "open_price":  "1.2507"}
     
     Response: Order has been processed.
 
+
   Kommando unset:
 
-    Close Trade/Order: cmd|[account name]|[uid] unset [ticket_id]
-                       cmd|testaccount|fdjksalr38wufsd= unset 43916144
+    Close Trade/Order: cmd|[account name]|[uid] unset {"ticket": "[Ticket ID]"}
+                       cmd|testaccount|fdjksalr38wufsd= unset {"ticket": "43916144"}
 
     Response: Order has been processed.
      
   Kommando draw:
-    Draw Object:       cmd|[account name]|[uid] Draw [obj_type] [open time] [open price] [close time] [close price] [prediction]
-                       cmd|testaccount|fdjksalr38wufsd= Draw 43916144
+
+    Draw Object:   cmd|[account name]|[uid] draw {"obj_type":    "[Objekt Type]", 
+                                                  "open_price":  "[Eröffnungskurs]", 
+                                                  "close_price": "[Schlußkurs]",
+                                                  "close_time":  "[Schlußzeit]",
+                                                  "prediction":  "[Prediction]"}
+                   cmd|testaccount|fdjksalr38wufsd= draw {"object_type": "OBJ_ARROW", 
+                                                          "open_price":  "1.2054", 
+                                                          "close_time":  "753324221",
+                                                          "close_price": "1.2234",
+                                                          "prediction":  "0.7"}
 
     Response: true|false
-    
+
