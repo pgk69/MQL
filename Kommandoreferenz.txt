@@ -1,8 +1,8 @@
 EA an Perl:
 
   Status:
-    Bridge up:   bridge|[account name] UP [Trade_Direction] [pair] [Timestamp]
-                 bridge|testaccount UP short EURUSD 1355775144
+    Bridge up:   bridge|[account name] UP [pair] [Timestamp]
+                 bridge|testaccount UP EURUSD 1355775144
 
     Bridge down: bridge|[account name] DOWN
                  bridge|testaccount DOWN
