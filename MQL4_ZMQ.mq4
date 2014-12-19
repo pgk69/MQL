@@ -13,8 +13,8 @@ extern string ZMQ_transport_protocol = "tcp";
 extern string ZMQ_server_address = "192.168.178.1";
 extern string ZMQ_inbound_port = "4711";
 extern string ZMQ_outbound_port = "4712";
-extern bool Wait_for_Message = false;
-extern bool Get_Tick_Info = false;
+extern bool Wait_for_Message = true;
+extern bool Get_Info = true;
 extern int EMA_long = 180;
 extern int EMA_short = 60;
 extern int MagicNumber = 11041963;
@@ -186,7 +186,14 @@ int start() {
       if (settings.value  == "pair") {
         if (send_response(uid, Symbol()) == false)         // Send response.
           Print("ERROR occurred sending response!");
+      } else if (settings.value  == "isconnected") {
+        if (send_response(uid, IntegerToString(IsConnected())) == false)    // Send response.
+          Print("ERROR occurred sending response!");
+      } else if (settings.value  == "digits") {
+        if (send_response(uid, IntegerToString(Digits())) == false)         // Send response.
+          Print("ERROR occurred sending response!");
       }
+      // and so on ....
         
     // cmd reset: Set new Trade Parameter
     } else if (settings.cmd == "reset") {                  // cmd reset
@@ -220,7 +227,7 @@ int start() {
           Print("Order: " + settings.ticket + " updated stop loss to: " + settings.stop_loss + ", take profit to: " + settings.take_profit + ", and open price to: " + settings.open_price);
         }
             
-        if (send_response(uid, "Order has been processed.") == false) // Send response.
+        if (send_response(uid, "Order has been modified.") == false) // Send response.
           Print("ERROR occurred sending response!");
       }
       
@@ -242,7 +249,7 @@ int start() {
       } else {
         Print("Closed trade: " + settings.ticket);
             
-        if (send_response(uid, "Order has been processed.") == false) // Send response.
+        if (send_response(uid, "Order has been closed.") == false) // Send response.
           Print("ERROR occurred sending response!");
       }
 
@@ -301,7 +308,7 @@ int start() {
         Print("OrderSend failed with error #",GetLastError());
         return(0);
       } else { 
-        if (send_response(uid, "Order has been processed.") == false) // Send response.
+        if (send_response(uid, "Order has been send:" + IntegerToString(ticket)) == false) // Send response.
           Print("ERROR occurred sending response!");
       }
 
@@ -327,7 +334,20 @@ int start() {
           ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, Gray);
         send_response(uid, "true");                        // Send response.
       }         
+    
+    // cmd parameter: Set Parameter
+    } else if (settings.cmd == "parameter") {              // cmd parameter
+      if (settings.value  == "get_info=1") {
+    	Get_Info = true;
+      } else if (settings.value  == "get_info=0") {
+      	Get_Info = false;
+      } else if (settings.value  == "wait_for_message=1") {
+      	Wait_for_Message = true;
+      } else if (settings.value  == "wait_for_message=0") {
+    	Wait_for_Message = false;
+      }
     }
+
     return(0);
   }
    
@@ -336,8 +356,8 @@ int start() {
   // Third Part: Hedge Orders: Set TP/SL
   manageOrders();
 
-  // Forth Part: Deliver new Tick Info, Account Info, Order Info and EMA Info back
-  if (Get_Tick_Info) {
+  // Forth Part: Deliver Bridge Info, Account Info, Order Info, EMA Info and new Tick Info back 
+  if (Get_Info) {
     // Publish data.
     //
     // If you need to send a Multi-part message do the following (example is a three part message). 
@@ -345,15 +365,14 @@ int start() {
     //    s_sendmore(speaker, part_2);
     //    s_send(speaker, part_3);
 
-    string tick = "info|" + AccountName() + " tick {\"pair\": \"" + Symbol() +
-                                               "\", \"bid\": \""  + DoubleToStr(Bid) + 
-                                               "\", \"ask\": \""  + DoubleToStr(Ask) +
-                                               "\", \"time\": \"" + TimeToStr(Time[0]) + "\"}";
-    if (s_send(speaker, tick) == -1)                       // Current tick.
-      Print("Error sending message: " + tick);
-    else
-      Print("Published message: " + tick);
-    
+	string bridge_up = "status|" + AccountName() + " bridge {\"status\": \"up" +
+	                                                "\", \"pair\": \"" + Symbol() + 
+	                                                "\", \"time\": \"" + TimeToStr(TimeCurrent()) + "\"}";
+	if (s_send(speaker, bridge_up) == -1)
+	  Print("Error sending message: " + bridge_up);
+	else
+	  Print("Published message: " + bridge_up);
+
     string account = "info|" + AccountName() + " account {\"leverage\": \""    + IntegerToString(AccountLeverage()) + 
                                                      "\", \"balance\": \""     + DoubleToStr(AccountBalance()) + 
                                                      "\", \"margin\": \""      + DoubleToStr(AccountMargin()) + 
@@ -363,21 +382,30 @@ int start() {
     else
       Print("Published message: " + account);
     
-      string ema = "info|" + AccountName() + " ema {\"pair\": \""      + Symbol() +
-                                               "\", \"ema_long\": \""  + IntegerToString(EMA_long) + 
-                                               "\", \"ima_long\": \""  + DoubleToStr(iMA(Symbol(),0,EMA_long,0,MODE_EMA,PRICE_MEDIAN,0)) + 
-                                               "\", \"ema_short\": \"" + IntegerToString(EMA_short) + 
-                                               "\", \"ima_short\": \"" + DoubleToStr(iMA(Symbol(),0,EMA_short,0,MODE_EMA,PRICE_MEDIAN,0)) + "\"}";
+    string ema = "info|" + AccountName() + " ema {\"pair\": \""      + Symbol() +
+                                             "\", \"ema_long\": \""  + IntegerToString(EMA_long) + 
+                                             "\", \"ima_long\": \""  + DoubleToStr(iMA(Symbol(),0,EMA_long,0,MODE_EMA,PRICE_MEDIAN,0)) + 
+                                             "\", \"ema_short\": \"" + IntegerToString(EMA_short) + 
+                                             "\", \"ima_short\": \"" + DoubleToStr(iMA(Symbol(),0,EMA_short,0,MODE_EMA,PRICE_MEDIAN,0)) + "\"}";
     if (s_send(speaker, ema) == -1)                        // Current EMA info.  
       Print("Error sending message: " + ema);
     else
       Print("Published message: " + ema);
-    
+      
     string orders = lookup_open_orders();
     if (s_send(speaker, orders) == -1)                     // Currently open orders.  
       Print("Error sending message: " + orders);
     else
       Print("Published message: " + orders);   
+
+    string tick = "info|" + AccountName() + " tick {\"pair\": \"" + Symbol() +
+                                               "\", \"bid\": \""  + DoubleToStr(Bid) + 
+                                               "\", \"ask\": \""  + DoubleToStr(Ask) +
+                                               "\", \"time\": \"" + TimeToStr(Time[0]) + "\"}";
+    if (s_send(speaker, tick) == -1)                       // Current tick.
+      Print("Error sending message: " + tick);
+    else
+      Print("Published message: " + tick);
   }
 //----
   return(0);
@@ -461,15 +489,18 @@ string lookup_open_orders() {
     
   for (int position=0; position < total_orders; position++) { // Build a json-like string for each order and add it to eh current_orders return string. 
     if (OrderSelect(position,SELECT_BY_POS)==false) continue;
-    current_orders = current_orders + "{\"pair\": \""        + OrderSymbol() + 
-                                   "\", \"type\": \""        + IntegerToString(OrderType()) + 
-                                   "\", \"ticket_id\": \""   + IntegerToString(OrderTicket()) + 
-                                   "\", \"open_price\": \""  + DoubleToStr(OrderOpenPrice()) + 
-                                   "\", \"take_profit\": \"" + DoubleToStr(OrderTakeProfit()) + 
-                                   "\", \"stop_loss\": \""   + DoubleToStr(OrderStopLoss()) + 
-                                   "\", \"open_time\": \""   + TimeToStr(OrderOpenTime()) + 
-                                   "\", \"expire_time\": \"" + TimeToStr(OrderExpiration()) + 
-                                   "\", \"lots\": \""        + DoubleToStr(OrderLots()) + 
+    current_orders = current_orders + "{\"ticket\": \""       + IntegerToString(OrderTicket()) + 
+                                   "\", \"magic_number\": \"" + IntegerToString(OrderMagicNumber()) + 
+                                   "\", \"type\": \""         + IntegerToString(OrderType()) + 
+                                   "\", \"pair\": \""         + OrderSymbol() + 
+                                   "\", \"open_price\": \""   + DoubleToStr(OrderOpenPrice()) + 
+                                   "\", \"take_profit\": \""  + DoubleToStr(OrderTakeProfit()) + 
+                                   "\", \"stop_loss\": \""    + DoubleToStr(OrderStopLoss()) + 
+                                   "\", \"profit\": \""       + DoubleToStr(OrderProfit()) + 
+                                   "\", \"lot\": \""          + DoubleToStr(OrderLots()) + 
+                                   "\", \"comment\": \""      + OrderComment() + 
+                                   "\", \"open_time\": \""    + TimeToStr(OrderOpenTime()) + 
+                                   "\", \"expire_time\": \""  + TimeToStr(OrderExpiration()) + 
                                    "\"}\n";
   }
       

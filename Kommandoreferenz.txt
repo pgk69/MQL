@@ -67,7 +67,9 @@ EA an Perl:
     
     Responses:  true
                 false
-                Order has been processed.
+                Order has been send:[Ticket ID]
+                Order has been modified.
+                Order has been closed.
                 [pair]
 
   
@@ -107,7 +109,7 @@ Perl an EA:
                                                        "stop_loss":    "1.2450", 
                                                        "lot":          "0.5"}
 
-    Response: Order has been processed.
+    Response: Order has been send:[Ticket ID]
                 
     Trade Types:
        0 = (MQL4) OP_BUY       - buying position,
@@ -140,7 +142,7 @@ Perl an EA:
                                                          "stop_loss":   "1.2502",
                                                          "open_price":  "1.2507"}
     
-    Response: Order has been processed.
+    Response: Order has been modified.
 
 
   Kommando unset:
@@ -150,7 +152,7 @@ Perl an EA:
                        cmd|testaccount|fdjksalr38wufsd= {"cmd":    "unset",
                                                          "ticket": "43916144"}
 
-    Response: Order has been processed.
+    Response: Order has been closed.
      
   Kommando draw:
 
@@ -168,4 +170,14 @@ Perl an EA:
                                                      "prediction":  "0.7"}
 
     Response: true|false
+    
+  Kommando parameter:
+
+    Request Value: cmd|[account name]|[uid] {"cmd":   "parameter",
+                                             "value": "[zu setzender Parameter]"}
+                   cmd|testaccount|fdjksalr38wufsd= {"cmd":   "set",
+                                                     "value": "Wait_for_Message=0"}
+                       
+    Response: -
+    
 
