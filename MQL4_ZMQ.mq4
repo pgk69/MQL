@@ -31,6 +31,7 @@ int speaker, listener, context;
 string uid;
 
 struct trade_settings {
+  string cmd;           // Kommando  (set|reset|unset|get|draw)
   string ticket;        // Ticket ID  (123456789)
   string magic_number;  // MagicNumber
   string type;          // Type 
@@ -56,7 +57,7 @@ struct trade_settings {
   string value;         // Requested Value
 };
   
-trade_settings settings = {"", "", "", "", "", "", "", "", "", NULL, "", "", "", "", "", "", ""}; 
+trade_settings settings = {"", "", "", "", "", "", "", "", "", "", NULL, "", "", "", "", "", "", ""}; 
   
 
 //+------------------------------------------------------------------+
