@@ -181,14 +181,14 @@ int start() {
     StringToLower(message);
     
     // cmd get: Ask for a value
-    if (StringFind(message, "get", 0) != -1)         {     // cmd get; If requested value is available
+    if (settings.cmd == "get") {                           // cmd get; If requested value is available
       if (settings.value  == "pair") {
         if (send_response(uid, Symbol()) == false)         // Send response.
           Print("ERROR occurred sending response!");
       }
         
     // cmd reset: Set new Trade Parameter
-    } else if (StringFind(message, "reset", 0) != -1) {    // cmd reset
+    } else if (settings.cmd == "reset") {                  // cmd reset
       bool update_ticket = false;
       if (OrderSelect(StrToInteger(settings.ticket), SELECT_BY_TICKET)) { // Select the requested order.
         if (settings.open_price == "") {                     // Since 'open_price' was not received, we know that we're updating a trade.
@@ -224,7 +224,7 @@ int start() {
       }
       
     // cmd unset: Close Trade
-    } else if (StringFind(message, "unset", 0) != -1) {    // cmd unset
+    } else if (settings.cmd == "unset") {                  // cmd unset
       bool close_ticket  = false;
       if (OrderSelect(StrToInteger(settings.ticket), SELECT_BY_TICKET)) { // Select the requested order and send the oder close instructions.
         if (OrderType() == OP_BUY) {
@@ -246,7 +246,7 @@ int start() {
       }
 
     // cmd set: Open Trade
-    } else if (StringFind(message, "set", 0) != -1) {      // cmd set
+    } else if (settings.cmd == "set") {                    // cmd set
       Print(settings.type + " " + settings.pair + ", Open: " + settings.open_price + ", TP: " + settings.take_profit + ", SL: " + settings.stop_loss + ", Lots: " + settings.lot);
 
       // Falls ein Open_Price mitgegeben wurde, wird anhand des aktuellen Preises und settings.slippage entscheiden, ob die Order 
@@ -305,7 +305,7 @@ int start() {
       }
 
     // cmd Draw: Draw Object
-    } else if (StringFind(message, "draw", 0) != -1) {     // cmd draw; If a new element to be drawen is requested.
+    } else if (settings.cmd == "draw") {                   // cmd draw; If a new element to be drawen is requested.
       double bar_uid = MathRand()%10001/10000.0;           // Generate UID
             
       // Draw the rectangle object.
@@ -344,10 +344,10 @@ int start() {
     //    s_sendmore(speaker, part_2);
     //    s_send(speaker, part_3);
 
-  string tick = "info|" + AccountName() + " tick {\"pair\": \"" + Symbol() +
-                                             "\", \"bid\": \""  + DoubleToStr(Bid) + 
-                                             "\", \"ask\": \""  + DoubleToStr(Ask) +
-                                             "\", \"time\": \"" + TimeToStr(Time[0]) + "\"}";
+    string tick = "info|" + AccountName() + " tick {\"pair\": \"" + Symbol() +
+                                               "\", \"bid\": \""  + DoubleToStr(Bid) + 
+                                               "\", \"ask\": \""  + DoubleToStr(Ask) +
+                                               "\", \"time\": \"" + TimeToStr(Time[0]) + "\"}";
     if (s_send(speaker, tick) == -1)                       // Current tick.
       Print("Error sending message: " + tick);
     else
@@ -362,11 +362,11 @@ int start() {
     else
       Print("Published message: " + account);
     
-    string ema = "info|" + AccountName() + " ema {\"pair\": \""      + Symbol() +
-                                             "\", \"ema_long\": \""  + IntegerToString(EMA_long) + 
-                                             "\", \"ima_long\": \""  + DoubleToStr(iMA(Symbol(),0,EMA_long,0,MODE_EMA,PRICE_MEDIAN,0)) + 
-                                             "\", \"ema_short\": \"" + IntegerToString(EMA_short) + 
-                                             "\", \"ima_short\": \"" + DoubleToStr(iMA(Symbol(),0,EMA_short,0,MODE_EMA,PRICE_MEDIAN,0)) + "\"}";
+      string ema = "info|" + AccountName() + " ema {\"pair\": \""      + Symbol() +
+                                               "\", \"ema_long\": \""  + IntegerToString(EMA_long) + 
+                                               "\", \"ima_long\": \""  + DoubleToStr(iMA(Symbol(),0,EMA_long,0,MODE_EMA,PRICE_MEDIAN,0)) + 
+                                               "\", \"ema_short\": \"" + IntegerToString(EMA_short) + 
+                                               "\", \"ima_short\": \"" + DoubleToStr(iMA(Symbol(),0,EMA_short,0,MODE_EMA,PRICE_MEDIAN,0)) + "\"}";
     if (s_send(speaker, ema) == -1)                        // Current EMA info.  
       Print("Error sending message: " + ema);
     else
@@ -413,7 +413,8 @@ void message_get_settings(string mymessage) {
         // @@@ Gemeint ist bei key=ticket_id und value=1234567  :  settings.ticket = 1234567
         // Leider habe ich das nicht hingekriegt, daher etwas sehr umstaendlich zu Fuss
         // settings.key = value;
-        if      (key == "ticket")       settings.ticket       = value;
+        if      (key == "cmd")          settings.cmd          = value;
+        else if (key == "ticket")       settings.ticket       = value;
         else if (key == "magic_number") settings.magic_number = value;
         else if (key == "type")         settings.type         = value;
         else if (key == "pair")         settings.pair         = value;
