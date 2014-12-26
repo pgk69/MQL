@@ -38,7 +38,7 @@ extern int DebugLevel           = 1;
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
-int OrderManager_init() {
+int OrderManager_Init() {
   Print("OrderManager Version: ", VERSION);
   TPPips      = TPPips/pow(10, Digits-1);
   TPTrailPips = TPTrailPips/pow(10, Digits-1);
@@ -67,13 +67,13 @@ int manageOrders() {
   // Bearbeitung aller offenen Trades
   if (DebugLevel > 2) Print(Symbol()," Orderbuch auslesen (Total alle Symbole: ",OrdersTotal(),")");
   for (i=0; i<OrdersTotal(); i++) {
-    // Nur gültige Trades verarbeiten
+    // Nur gÃ¼ltige Trades verarbeiten
     if (OrderSelect(i, SELECT_BY_POS,MODE_TRADES) == false)  continue;
     // Nur OP_BUY oder OP_SELL Trades verarbeiten
     if ((OrderType() != OP_BUY) && (OrderType() != OP_SELL)) continue;
     // in Abhaengigkeit von onlyCurrentSymbol wird nur das aktuelle Symbol oder alle Symbole ausgewertet
     if (onlyCurrentSymbol && (OrderSymbol() != Symbol()))    continue;
-    // in Abhaengigkeit von MagicNumber werden nur Symbol mit übereinstimmender MagicNumber verarbetet
+    // in Abhaengigkeit von MagicNumber werden nur Symbol mit Ã¼bereinstimmender MagicNumber verarbetet
     // Wird vom aufrufenden Programm geregelt
     // if (MagicNumber && (OrderMagicNumber() != MagicNumber))  continue;
  
