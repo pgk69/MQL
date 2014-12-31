@@ -12,15 +12,29 @@
 //--- input parameters
 extern bool onlyCurrentSymbol   = true;
 
-extern double SLPips            = 30;
-extern double SLPercent         = 0.3;
+enum Abs_Proz 
+  {
+   Pips=0,     // Pips
+   Prozent=1,  // Prozent
+  };
+
+// initialer Abstand des TP/SL zum Einstiegskurs
 extern double TPPips            = 30;
 extern double TPPercent         = 0.3;
+input Abs_Proz TP_Grenze        = Pips; 
+extern double SLPips            = 30;
+extern double SLPercent         = 0.3;
+input Abs_Proz SL_Grenze        = Pips;
 
-extern double SLTrailPips       = 15;
-extern double SLTrailPercent    = 0.15;
+// Nachziehen des TP
+// Auf 0 setzen damit kein Nachziehen des TP erfolgt
 extern double TPTrailPips       = 15;
 extern double TPTrailPercent    = 0.15;
+input Abs_Proz TPTrail_Grenze   = Pips; 
+// Nachziehen des SL
+extern double SLTrailPips       = 15;
+extern double SLTrailPercent    = 0.15;
+input Abs_Proz SLTrail_Grenze   = Pips; 
 
 extern int MaxRetry             = 10;
 
@@ -52,9 +66,9 @@ int OrderManager_Init() {
 }
 
 //+------------------------------------------------------------------+
-//| expert start function                                            |
+//| expert manageOrders function                                            |
 //+------------------------------------------------------------------+
-int manageOrders() {
+int manageOrders(string MagicNumber) {
 
   int i, rc, Retry, Ticket;
   double SL, TP;
@@ -67,18 +81,18 @@ int manageOrders() {
   // Bearbeitung aller offenen Trades
   if (DebugLevel > 2) Print(Symbol()," Orderbuch auslesen (Total alle Symbole: ",OrdersTotal(),")");
   for (i=0; i<OrdersTotal(); i++) {
-    // Nur gÃ¼ltige Trades verarbeiten
+    // Nur gueltige Trades verarbeiten
     if (OrderSelect(i, SELECT_BY_POS,MODE_TRADES) == false)  continue;
     // Nur OP_BUY oder OP_SELL Trades verarbeiten
     if ((OrderType() != OP_BUY) && (OrderType() != OP_SELL)) continue;
     // in Abhaengigkeit von onlyCurrentSymbol wird nur das aktuelle Symbol oder alle Symbole ausgewertet
     if (onlyCurrentSymbol && (OrderSymbol() != Symbol()))    continue;
-    // in Abhaengigkeit von MagicNumber werden nur Symbol mit Ã¼bereinstimmender MagicNumber verarbetet
+    // in Abhaengigkeit von MagicNumber werden nur Symbol mit uebereinstimmender MagicNumber verarbetet
     // Wird vom aufrufenden Programm geregelt
-    // if (MagicNumber && (OrderMagicNumber() != MagicNumber))  continue;
+    if (MagicNumber && (OrderMagicNumber() != MagicNumber))  continue;
  
     // Falls TPPercent angegeben ist, wird TPPips errechnet
-    if(TPPercent && SymbolInfoTick(Symbol(),last_tick)) {
+    if(TP_Grenze && TPPercent && SymbolInfoTick(Symbol(),last_tick)) {
       if (OrderType() == OP_BUY) {
         TPPips = TPPercent/100 * last_tick.ask;
       } else {
@@ -88,7 +102,7 @@ int manageOrders() {
     }
  
     // Falls TPTrailPercent angegeben ist, wird TPTrailPips errechnet
-    if(TPTrailPercent && SymbolInfoTick(Symbol(),last_tick)) {
+    if(TPTrail_Grenze && TPTrailPercent && SymbolInfoTick(Symbol(),last_tick)) {
       if (OrderType() == OP_BUY) {
         TPTrailPips = TPTrailPercent/100 * last_tick.ask;
       } else {
