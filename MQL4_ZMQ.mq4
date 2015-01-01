@@ -10,9 +10,9 @@
 
 // Runtime options to specify.
 extern string ZMQ_transport_protocol = "tcp";
-extern string ZMQ_server_address = "192.168.178.26";
+extern string ZMQ_server_address = "*";
 extern string ZMQ_inbound_port = "5555";
-extern string ZMQ_outbound_port = "5555";
+extern string ZMQ_outbound_port = "5556";
 extern bool Wait_for_Message = false;
 extern bool Get_Info = false;
 extern bool Testmode = true;
@@ -29,6 +29,8 @@ extern int MagicNumber = 11041963;
 //| variable definitions                                             |
 //+------------------------------------------------------------------+
 int speaker, listener, ctx;
+bool speaker_connected = false;
+bool listener_connected = false;
 string uid;
 
 struct trade_settings {
@@ -78,45 +80,21 @@ int init() {
    
   Print(ping("Hello World"));
    
+  // Define ZMQ Objects
   ctx      = zmq_init(1);
   speaker  = zmq_socket(ctx, ZMQ_PUB);
   listener = zmq_socket(ctx, ZMQ_SUB);
-  string outbound_connection_string = ZMQ_transport_protocol + "://" + ZMQ_server_address + ":" + ZMQ_outbound_port;
-  string inbound_connection_string = ZMQ_transport_protocol + "://" + ZMQ_server_address + ":" + ZMQ_inbound_port;
-  string command_string = "cmd|" + IntegerToString(AccountNumber());
   
   // Subscribe to the command channel (i.e. "cmd").  
   // NOTE: to subscribe to multiple channels call zmq_setsockopt multiple times.
+  string command_string = "cmd|" + IntegerToString(AccountNumber());
   zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
- 
-  // Todo: Error connecting Speaker
-  if (zmq_connect(speaker, outbound_connection_string) == -1) {
-    Print("Error connecting the speaker to the central queue! " + outbound_connection_string);
-//    return(-1);
-  } else {
-    Print("Speaker connected to the central queue! " + outbound_connection_string);
-  } 
-
-  // Todo: Error connecting Listener
-  if (zmq_connect(listener, inbound_connection_string) == -1) {
-    Print("Error connecting the listener to the central queue! " + inbound_connection_string);
-//    return(-1);
-  } else {
-    Print("Listener connected to the central queue! " + outbound_connection_string);
-  }
-   
-  // Send Notification that bridge is up.
-  // Format: bridge|testaccount UP short EURUSD 1355775144
-  string bridge_up = "status|" + IntegerToString(AccountNumber()) + " bridge {\"status\": \"up" +
-                                                                         "\", \"pair\": \"" + Symbol() + 
-                                                                         "\", \"time\": \"" + TimeToStr(TimeCurrent()) + "\"}";
-  if (s_send(speaker, bridge_up) == -1)
-    Print("Error sending message: " + bridge_up);
-  else
-    Print("Published message: " + bridge_up);
-
   Print("Listening for commands on channel: " + command_string); // Output command string.
-   
+  
+  // Connect/Bind Listener and Speaker 
+  listener_connected = connect_Listener();
+  speaker_connected  = connect_Speaker();
+  
 //----
   return(0);
 }
@@ -137,12 +115,10 @@ int deinit() {
   // Send Notification that bridge is down.
   // Format: bridge|testaccount DOWN
   string bridge_down = "status|" + IntegerToString(AccountNumber()) + " bridge {\"status\": \"down\"}";
-  if(s_send(speaker, bridge_down) == -1)
-    Print("Error sending message: " + bridge_down);
-  else
-    Print("Published message: " + bridge_down);
+  if (s_send(speaker, bridge_down) == -1) Print("Error sending message: " + bridge_down);
+  else                                    Print("Published message: " + bridge_down);
    
-  // Protect against memory leaks on shutdowfn.
+  // Protect against memory leaks on shutdown.
   zmq_close(speaker);
   zmq_close(listener);
   zmq_term(ctx);
@@ -173,229 +149,229 @@ int start() {
   // First Part: Read message
   string message, response;
 
-  if (Wait_for_Message) {
-    message = s_recv(listener);
-  } else {
-    message = s_recv(listener, ZMQ_NOBLOCK);
-  }
-  message = StringTrimLeft(StringTrimRight(message));
+  if (connect_Listener()) {
+    if (Wait_for_Message) {
+      message = s_recv(listener);
+    } else {
+      message = s_recv(listener, ZMQ_NOBLOCK);
+    }
 
-  // Second Part: Analyse message and execute command
-  // Todo: Leerstrings werden nicht erkannt
-  if ("message" != "") {                                   // Will return NULL if no message was received.
-    Print("Received message: <" + message + "> " + IntegerToString(StringLen(message)));
-    message_get_settings(message);                         // Determine Message settings
-    StringToLower(message);
+
+    // Second Part: Analyse message and execute command
+    if (message != "") {                                     // Will return NULL if no message was received.
+      Print("Received message: " + message);
+      message_get_settings(message);                         // Determine Message settings
+      StringToLower(message);
     
-    // cmd reset: Set new Trade Parameter
-    if (settings.cmd == "reset") {                        // cmd reset
-      bool update_ticket = false;
-      if (OrderSelect(StrToInteger(settings.ticket), SELECT_BY_TICKET)) { // Select the requested order.
-        if (settings.open_price == "") {                     // Since 'open_price' was not received, we know that we're updating a trade.
-          if (Testmode == false) {
-            update_ticket = OrderModify(OrderTicket(),         // Send the trade modify instructions.
-                                        OrderOpenPrice(),      
-                                        NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
-                                        NormalizeDouble(StrToDouble(settings.take_profit), Digits), 
-                                        0,
-                                        Blue);
-          } else {
-            update_ticket = true;
-          }
-        } else {                                             // Since 'open_price' was received, we know that we're updating an order.
-          Print(NormalizeDouble(StrToDouble(settings.open_price), Digits));
-          if (Testmode == false) {
-            update_ticket = OrderModify(OrderTicket(),         // Send the order modify instructions.
-                                        NormalizeDouble(StrToDouble(settings.open_price), Digits),
-                                        NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
-                                        NormalizeDouble(StrToDouble(settings.take_profit), Digits), 
-                                        0, 
-                                        Blue);
-          } else {
-            update_ticket = true;
+      // cmd reset: Set new Trade Parameter
+      if (settings.cmd == "reset") {                        // cmd reset
+        bool update_ticket = false;
+        if (OrderSelect(StrToInteger(settings.ticket), SELECT_BY_TICKET)) { // Select the requested order.
+          if (settings.open_price == "") {                     // Since 'open_price' was not received, we know that we're updating a trade.
+            if (Testmode == false) {
+              update_ticket = OrderModify(OrderTicket(),         // Send the trade modify instructions.
+                                          OrderOpenPrice(),      
+                                          NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
+                                          NormalizeDouble(StrToDouble(settings.take_profit), Digits), 
+                                          0,
+                                          Blue);
+            } else {
+              update_ticket = true;
+            }
+          } else {                                             // Since 'open_price' was received, we know that we're updating an order.
+            Print(NormalizeDouble(StrToDouble(settings.open_price), Digits));
+            if (Testmode == false) {
+              update_ticket = OrderModify(OrderTicket(),         // Send the order modify instructions.
+                                          NormalizeDouble(StrToDouble(settings.open_price), Digits),
+                                          NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
+                                          NormalizeDouble(StrToDouble(settings.take_profit), Digits), 
+                                          0, 
+                                          Blue);
+            } else {
+              update_ticket = true;
+            }
           }
         }
-      }
                   
-      if (update_ticket == false) {
-        Print("OrderSend/OrderSelect failed with error #", GetLastError());
-        return(0);
-      } else {
-        if (settings.open_price == "") {
-          Print("Trade: " + settings.ticket + " updated stop loss to: " + settings.stop_loss + " and take profit to: " + settings.take_profit);
+        if (update_ticket == false) {
+          Print("OrderSend/OrderSelect failed with error #", GetLastError());
+          return(0);
         } else {
-          Print("Order: " + settings.ticket + " updated stop loss to: " + settings.stop_loss + ", take profit to: " + settings.take_profit + ", and open price to: " + settings.open_price);
-        }
-        response = "Order has been modified:" + settings.ticket;
-        if (send_response(uid, response) == false) // Send response.
-          Print("ERROR occurred sending response!");
-      }
-      
-    // cmd unset: Close Trade
-    } else if (settings.cmd == "unset") {                  // cmd unset
-      bool close_ticket  = false;
-      if (OrderSelect(StrToInteger(settings.ticket), SELECT_BY_TICKET)) { // Select the requested order and send the oder close instructions.
-        if (Testmode == false) {
-          if (OrderType() == OP_BUY) {
-            close_ticket = OrderClose(OrderTicket(), OrderLots(), Bid, 3, Red);
-          } else if (OrderType() == OP_SELL) {
-            close_ticket = OrderClose(OrderTicket(), OrderLots(), Ask, 3, Red);
-          } else if (OrderType() == OP_BUYLIMIT || OrderType() == OP_BUYSTOP || OrderType() == OP_SELLLIMIT || OrderType() == OP_SELLSTOP) {
-            close_ticket = OrderDelete(OrderTicket());
+          if (settings.open_price == "") {
+            Print("Trade: " + settings.ticket + " updated stop loss to: " + settings.stop_loss + " and take profit to: " + settings.take_profit);
+          } else {
+            Print("Order: " + settings.ticket + " updated stop loss to: " + settings.stop_loss + ", take profit to: " + settings.take_profit + ", and open price to: " + settings.open_price);
           }
+          response = "Order has been modified:" + settings.ticket;
+          if (send_response(uid, response) == false) // Send response.
+            Print("ERROR occurred sending response!");
+        }
+      
+      // cmd unset: Close Trade
+      } else if (settings.cmd == "unset") {                  // cmd unset
+        bool close_ticket  = false;
+        if (OrderSelect(StrToInteger(settings.ticket), SELECT_BY_TICKET)) { // Select the requested order and send the oder close instructions.
+          if (Testmode == false) {
+            if (OrderType() == OP_BUY) {
+              close_ticket = OrderClose(OrderTicket(), OrderLots(), Bid, 3, Red);
+            } else if (OrderType() == OP_SELL) {
+              close_ticket = OrderClose(OrderTicket(), OrderLots(), Ask, 3, Red);
+            } else if (OrderType() == OP_BUYLIMIT || OrderType() == OP_BUYSTOP || OrderType() == OP_SELLLIMIT || OrderType() == OP_SELLSTOP) {
+              close_ticket = OrderDelete(OrderTicket());
+            }
+          } else {
+            close_ticket = true;
+          }
+        }   
+        if (close_ticket == false) {
+          Print("OrderSend/OrderSelect failed with error #",GetLastError());
+          return(0);
         } else {
-          close_ticket = true;
+          Print("Closed trade: " + settings.ticket);
+          response = "Order has been closed:" + settings.ticket;
+          if (send_response(uid, response) == false) // Send response.
+            Print("ERROR occurred sending response!");
         }
-      }   
-      if (close_ticket == false) {
-        Print("OrderSend/OrderSelect failed with error #",GetLastError());
-        return(0);
-      } else {
-        Print("Closed trade: " + settings.ticket);
-        response = "Order has been closed:" + settings.ticket;
-        if (send_response(uid, response) == false) // Send response.
-          Print("ERROR occurred sending response!");
-      }
 
-    // cmd set: Open Trade
-    } else if (settings.cmd == "set") {                    // cmd set
-      Print(settings.type + " " + settings.pair + ", Open: " + settings.open_price + ", TP: " + settings.take_profit + ", SL: " + settings.stop_loss + ", Lots: " + settings.lot);
+      // cmd set: Open Trade
+      } else if (settings.cmd == "set") {                    // cmd set
+        Print(settings.type + " " + settings.pair + ", Open: " + settings.open_price + ", TP: " + settings.take_profit + ", SL: " + settings.stop_loss + ", Lots: " + settings.lot); 
 
-      // Falls ein Open_Price mitgegeben wurde, wird anhand des aktuellen Preises und settings.slippage entscheiden, ob die Order 
-      // marktausgefuehrt wird oder als BUYLIMIT/STOPLIMIT oder garnicht.
-      // Eventuell kann der 5. Parameter von OrderSend (slippage) auch verwendet werden
-      // Moegliche Werte fuer settings.type:
-      // 0 = (MQL4) OP_BUY - buying position,
-      // 1 = (MQL4) OP_SELL - selling position,
-      // 2 = (MQL4) OP_BUYLIMIT - buy limit pending position,
-      // 3 = (MQL4) OP_SELLLIMIT - sell limit pending position,
-      // 4 = (MQL4) OP_BUYSTOP - buy stop pending position,
-      // 5 = (MQL4) OP_SELLSTOP - sell stop pending position.
-      //
-      // Moegliche Umstellungen
-      // OP_BUY  -> OP_BUYLIMIT statt Ask
-      // OP_SELL -> OP_SELLLIMIT statt Bid
-      if (settings.open_price) {
-        double myPrice    = StringToDouble(settings.open_price);
-        double myAsk      = Ask;
-        double myBid      = Bid;
-        double mySlippage = StringToDouble(settings.slippage) * myPrice / 100;
-        if (settings.type == IntegerToString(OP_BUY)) {
-          if ((myAsk - myPrice) > mySlippage) {
-            settings.type = IntegerToString(OP_BUYLIMIT);
-          } else {
-            settings.open_price = DoubleToStr(myAsk);
-          }
-        } else if (settings.type == IntegerToString(OP_SELL)) {
-          if ((myPrice - myBid) > mySlippage) {
-            settings.type = IntegerToString(OP_SELLLIMIT);
-          } else {
-            settings.open_price = DoubleToStr(myBid);
+        // Falls ein Open_Price mitgegeben wurde, wird anhand des aktuellen Preises und settings.slippage entscheiden, ob die Order 
+        // marktausgefuehrt wird oder als BUYLIMIT/STOPLIMIT oder garnicht.
+        // Eventuell kann der 5. Parameter von OrderSend (slippage) auch verwendet werden
+        // Moegliche Werte fuer settings.type:
+        // 0 = (MQL4) OP_BUY - buying position,
+        // 1 = (MQL4) OP_SELL - selling position,
+        // 2 = (MQL4) OP_BUYLIMIT - buy limit pending position,
+        // 3 = (MQL4) OP_SELLLIMIT - sell limit pending position,
+        // 4 = (MQL4) OP_BUYSTOP - buy stop pending position,
+        // 5 = (MQL4) OP_SELLSTOP - sell stop pending position.
+        //
+        // Moegliche Umstellungen
+        // OP_BUY  -> OP_BUYLIMIT statt Ask
+        // OP_SELL -> OP_SELLLIMIT statt Bid
+        if (settings.open_price) {
+          double myPrice    = StringToDouble(settings.open_price);
+          double myAsk      = Ask;
+          double myBid      = Bid;
+          double mySlippage = StringToDouble(settings.slippage) * myPrice / 100;
+          if (settings.type == IntegerToString(OP_BUY)) {
+            if ((myAsk - myPrice) > mySlippage) {
+              settings.type = IntegerToString(OP_BUYLIMIT);
+            } else {
+              settings.open_price = DoubleToStr(myAsk);
+            }
+          } else if (settings.type == IntegerToString(OP_SELL)) {
+            if ((myPrice - myBid) > mySlippage) {
+              settings.type = IntegerToString(OP_SELLLIMIT);
+            } else {
+              settings.open_price = DoubleToStr(myBid);
+            }
           }
         }
-      }
       
-      Print(NormalizeDouble(StrToDouble(settings.take_profit), Digits)); // Open trade.
+        Print(NormalizeDouble(StrToDouble(settings.take_profit), Digits)); // Open trade.
          
-      int ticket;
-      if (Testmode == false) {
-        ticket = OrderSend(StringTrimLeft(settings.pair),
-                           StrToInteger(settings.type), 
-                           NormalizeDouble(StrToDouble(settings.lot), Digits),
-                           NormalizeDouble(StrToDouble(settings.open_price), Digits),
-                           3,
-                           NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
-                           NormalizeDouble(StrToDouble(settings.take_profit), Digits),
-                           settings.comment,
-                           StrToInteger(settings.magic_number),
-                           TimeCurrent() + 3600,
-                           Green); 
-      } else {
-        ticket = 999999999;
-      }
-      if (ticket < 0) {
-        Print("OrderSend failed with error #",GetLastError());
-        return(0);
-      } else { 
-        response = "Order has been send:" + IntegerToString(ticket);
+        int ticket;
+        if (Testmode == false) {
+          ticket = OrderSend(StringTrimLeft(settings.pair),
+                             StrToInteger(settings.type), 
+                             NormalizeDouble(StrToDouble(settings.lot), Digits),
+                             NormalizeDouble(StrToDouble(settings.open_price), Digits),
+                             3,
+                             NormalizeDouble(StrToDouble(settings.stop_loss), Digits),
+                             NormalizeDouble(StrToDouble(settings.take_profit), Digits),
+                             settings.comment,
+                             StrToInteger(settings.magic_number),
+                             TimeCurrent() + 3600,
+                             Green); 
+        } else {
+          ticket = 999999999;
+        }
+        if (ticket < 0) {
+          Print("OrderSend failed with error #",GetLastError());
+          return(0);
+        } else { 
+          response = "Order has been send:" + IntegerToString(ticket);
+          if (send_response(uid, response) == false) // Send response.
+            Print("ERROR occurred sending response!");
+        }
+
+      // cmd Draw: Draw Object
+      } else if (settings.cmd == "draw") {                   // cmd draw; If a new element to be drawen is requested.
+        double bar_uid = MathRand()%10001/10000.0;           // Generate UID
+            
+        // Draw the rectangle object.
+        Print("Drawing: ", settings.type, " ", settings.window, " ", settings.open_time, " ", settings.open_price, " ", settings.close_time, " ", settings.close_price, " ", settings.prediction);
+        if (!ObjectCreate("bar:" + DoubleToStr(bar_uid), draw_object_string_to_int(settings.type), StrToInteger(settings.window), StrToInteger(settings.open_time), StrToDouble(settings.open_price), StrToInteger(settings.close_time), StrToDouble(settings.close_price))) {
+          Print("error: cannot create object! code #",GetLastError());
+          response = "false";
+        } else {
+          // Color the bar based on the predicted direction. If no prediction was sent than the 
+          // 'prediction' keyword will still occupy the array element and we need to set to Gray.
+          if (settings.prediction == "") {
+            ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, Gray);
+          } else if (StrToDouble(settings.prediction) > 0.5) {
+            ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, CadetBlue);
+          } else if (StrToDouble(settings.prediction) < 0.5) {
+            ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, IndianRed);
+          } else
+            ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, Gray);
+          response = "true";
+        }         
         if (send_response(uid, response) == false) // Send response.
           Print("ERROR occurred sending response!");
-      }
-
-    // cmd Draw: Draw Object
-    } else if (settings.cmd == "draw") {                   // cmd draw; If a new element to be drawen is requested.
-      double bar_uid = MathRand()%10001/10000.0;           // Generate UID
-            
-      // Draw the rectangle object.
-      Print("Drawing: ", settings.type, " ", settings.window, " ", settings.open_time, " ", settings.open_price, " ", settings.close_time, " ", settings.close_price, " ", settings.prediction);
-      if (!ObjectCreate("bar:" + DoubleToStr(bar_uid), draw_object_string_to_int(settings.type), StrToInteger(settings.window), StrToInteger(settings.open_time), StrToDouble(settings.open_price), StrToInteger(settings.close_time), StrToDouble(settings.close_price))) {
-        Print("error: cannot create object! code #",GetLastError());
-        response = "false";
-      } else {
-        // Color the bar based on the predicted direction. If no prediction was sent than the 
-        // 'prediction' keyword will still occupy the array element and we need to set to Gray.
-        if (settings.prediction == "") {
-          ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, Gray);
-        } else if (StrToDouble(settings.prediction) > 0.5) {
-          ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, CadetBlue);
-        } else if (StrToDouble(settings.prediction) < 0.5) {
-          ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, IndianRed);
-        } else
-          ObjectSet("bar:" + DoubleToStr(bar_uid), OBJPROP_COLOR, Gray);
-        response = "true";
-      }         
-      if (send_response(uid, response) == false) // Send response.
-        Print("ERROR occurred sending response!");
     
-    // cmd set_parameter: Set Parameter
-    } else if (settings.cmd == "set_parameter") {          // cmd set_parameter
-      if (settings.name == "get_info") {
-          Get_Info = StringToInteger(settings.value);
-        if (Get_Info == StringToInteger(settings.value)) {
-          response = "true";
-        } else {
-          response = "false";
+      // cmd set_parameter: Set Parameter
+      } else if (settings.cmd == "set_parameter") {          // cmd set_parameter
+        if (settings.name == "get_info") {
+            Get_Info = StringToInteger(settings.value);
+          if (Get_Info == StringToInteger(settings.value)) {
+            response = "true";
+          } else {
+            response = "false";
+          }
+        } else if (settings.name  == "wait_for_message") {
+          Wait_for_Message = StringToInteger(settings.value);
+          if (Wait_for_Message == StringToInteger(settings.value)) {
+            response = "true";
+          } else {
+            response = "false";
+          }
         }
-      } else if (settings.name  == "wait_for_message") {
-        Wait_for_Message = StringToInteger(settings.value);
-        if (Wait_for_Message == StringToInteger(settings.value)) {
-          response = "true";
-        } else {
-          response = "false";
+        // and so on ...
+        if (response != "") {
+          if (send_response(uid, response))// Send response.
+            Print("ERROR occurred sending response!");
         }
-      }
-      // and so on ...
-      if (response != "") {
-        if (send_response(uid, response))// Send response.
-          Print("ERROR occurred sending response!");
-      }
 
-    // cmd get_parameter: Ask for a value
-    } else if (settings.cmd == "get_parameter") {          // cmd get_parameter; If requested value is available
-      if (settings.name  == "pair") {
-        response = Symbol();
-      } else if (settings.name  == "isconnected") {
-        response = IntegerToString(IsConnected());
-      } else if (settings.name  == "digits") {
-        response = IntegerToString(Digits());
-      }
-      // and so on ....
-      if (response != "") {
-        if (send_response(uid, response))// Send response.
-          Print("ERROR occurred sending response!");
+      // cmd get_parameter: Ask for a value
+      } else if (settings.cmd == "get_parameter") {          // cmd get_parameter; If requested value is available
+        if (settings.name  == "pair") {
+          response = Symbol();
+        } else if (settings.name  == "isconnected") {
+          response = IntegerToString(IsConnected());
+        } else if (settings.name  == "digits") {
+          response = IntegerToString(Digits());
+        }
+        // and so on ....
+        if (response != "") {
+          if (send_response(uid, response))// Send response.
+            Print("ERROR occurred sending response!");
+        }
       }
     }
         
     return(0);
-  } else {
-      Print("Received empty message: <" + message + ">");
   }
+   
  
   // Third Part: Hedge Orders: Set TP/SL
-  manageOrders();
+  manageOrders(MagicNumber);
 
   // Forth Part: Deliver Bridge Info, Account Info, Order Info, EMA Info and new Tick Info back 
-  if (Get_Info) {
+  if (connect_Speaker() && Get_Info) {
     // Publish data.
     //
     // If you need to send a Multi-part message do the following (example is a three part message). 
@@ -552,7 +528,7 @@ string lookup_open_orders() {
 bool send_response(string myuid, string response) {
   string response_string = "response|" + IntegerToString(AccountNumber()) + "|" + myuid + " {\"response\": \"" + response + "\"}"; // Compose response string.
 
-  if (s_send(speaker, response_string) == -1) {            // Send the message.
+  if (!connect_Speaker() || (s_send(speaker, response_string) == -1)) {        // Send the message.
     Print("Error sending message: " + response_string);
     return(false);
   } else {
@@ -637,3 +613,64 @@ int draw_object_string_to_int(string name) {
 }
 
 //+------------------------------------------------------------------+
+
+
+//+------------------------------------------------------------------+
+//| Connect/Bind Listener                                            |
+//+------------------------------------------------------------------+
+bool connect_Listener() {
+  if (!listener_connected) {
+    listener_connected = true;
+    string inbound_connection_string = ZMQ_transport_protocol + "://" + ZMQ_server_address + ":" + ZMQ_inbound_port;
+    if (ZMQ_server_address == "" || ZMQ_server_address == "*" || ZMQ_server_address == "127.0.0.1") {
+      if (zmq_bind(listener, inbound_connection_string) == -1) {
+        Print("Error binding the listener to queue " + inbound_connection_string + "!");
+        listener_connected = false;
+        //  return(-1);
+      }
+    } else {
+      if (zmq_connect(listener, inbound_connection_string) == -1) {
+        Print("Error connecting the listener to queue " + inbound_connection_string + "!");
+        listener_connected = false;
+        //  return(-1);
+      }
+    }
+  }
+
+  return(listener_connected);
+}
+
+
+//+------------------------------------------------------------------+
+//| Connect/Bind Speaker                                            |
+//+------------------------------------------------------------------+
+bool connect_Speaker() {
+  if (!speaker_connected) {
+    speaker_connected = true;
+    string outbound_connection_string = ZMQ_transport_protocol + "://" + ZMQ_server_address + ":" + ZMQ_outbound_port;
+    if (ZMQ_server_address == "" || ZMQ_server_address == "*" || ZMQ_server_address == "127.0.0.1") {
+      if (zmq_bind(speaker, outbound_connection_string) == -1) {
+        Print("Error binding the speaker to queue " + outbound_connection_string + "!");
+        speaker_connected = false;
+        //  return(-1);
+      }
+    } else {
+      if (zmq_connect(speaker, outbound_connection_string) == -1) {
+        Print("Error connecting the speaker to queue " + outbound_connection_string + "!");
+        speaker_connected = false;
+        //  return(-1);
+      }
+    }
+  }
+  if (speaker_connected) {
+    // Send Notification that bridge is up.
+    // Format: bridge|testaccount {"status": "up", "pair":"EURUSD", "time":"2014.12.31 22:00"}
+    string bridge_up = "status|" + IntegerToString(AccountNumber()) + " bridge {\"status\": \"up" +
+                                                                           "\", \"pair\": \"" + Symbol() + 
+                                                                           "\", \"time\": \"" + TimeToStr(TimeCurrent()) + "\"}";
+    if (s_send(speaker, bridge_up) == -1) Print("Error sending message: " + bridge_up);
+    else                                  Print("Published message: " + bridge_up);
+  }
+
+  return(speaker_connected);
+}
