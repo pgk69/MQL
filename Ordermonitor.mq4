@@ -7,7 +7,7 @@
 #property link      ""
 
 //--- input parameters
-//- Wenn angegeben werden nur Trades mit dieser Magic Number �berwacht
+//- Wenn angegeben werden nur Trades mit dieser Magic Number ueberwacht
 extern int MagicNumber          = 0;
 
 //--- Global variables
