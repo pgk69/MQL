@@ -57,6 +57,7 @@ struct trade_settings {
   string close_time;    // CLose Time
   string close_price;   // Close Price
   string prediction;    // Prediction
+  string referenz;      // Externe Referenz
   string name;          // Parameter Name
   string value;         // Requested/Set Value
 };
@@ -427,7 +428,7 @@ int start() {
   
 //+------------------------------------------------------------------+
 //| Analyses the messages and collect Ticketparameter
-//|      => "cmd|[account name]|[uid] [some command]
+//|      => "cmd|[account name] [some command]
 //| Returns true if Order could be selected else false    
 //+------------------------------------------------------------------+
 void message_get_settings(string mymessage) {
@@ -437,7 +438,7 @@ void message_get_settings(string mymessage) {
   uid = message_get_uid(mymessage);                    // Pull out request uid. Message is formatted: "cmd|[account name]|[uid] reset [ticket_id] [take profit price] [stop loss price] [optional open price]"
   Print("uid: " + uid);                                // ack uid.
   
-  // cmd|[account name]|[uid] {"cmd":"[cmd]", "pair":"[pair]", "type":"[type]", "ticket_id":"[ticket_id]", "open_price":"[open_price]", "take_profit":"[take_profit]", "stop_loss":"[stop_loss]", "open_time":"[open_time]", "expire_time":"[expire_time]", "lots":"[lots]"}
+  // cmd|[account name] {"cmd":"[cmd]", "pair":"[pair]", "type":"[type]", "ticket_id":"[ticket_id]", "open_price":"[open_price]", "take_profit":"[take_profit]", "stop_loss":"[stop_loss]", "open_time":"[open_time]", "expire_time":"[expire_time]", "lots":"[lots]"}
   int start_position = StringFind(mymessage, "{", 0) + 1;
   int end_position = StringFind(mymessage, "}", start_position + 1);
   if (end_position > start_position) mymessage = StringSubstr(mymessage, start_position, end_position - start_position);
@@ -473,6 +474,7 @@ void message_get_settings(string mymessage) {
         else if (key == "close_time")   settings.close_time   = value;
         else if (key == "close_price")  settings.close_price  = value;
         else if (key == "prediction")   settings.prediction   = value;
+        else if (key == "referenz")     settings.referenz     = value;
         else if (key == "name")        {StringToLower(value); 
                                         settings.value       = value;}
         else if (key == "value")        settings.value       = value;
