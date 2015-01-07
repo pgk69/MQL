@@ -13,7 +13,7 @@
 #include <stdlib.mqh>
 
 //--- input parameters
-extern bool onlyCurrentSymbol   = false;
+extern bool onlyCurrentSymbol   = true;
 
 enum Abs_Proz 
   {
@@ -22,22 +22,21 @@ enum Abs_Proz
   };
 
 // initialer Abstand des TP/SL zum Einstiegskurs
-extern double TP_Pips           = 40;
-extern double TP_Percent        = 0.4;
-input Abs_Proz TP_Grenze        = Prozent; 
+extern double TP_Pips           = 30;
+extern double TP_Percent        = 0.3;
+input Abs_Proz TP_Grenze        = Pips; 
 extern double SL_Pips           = 30;
 extern double SL_Percent        = 0.3;
-input Abs_Proz SL_Grenze        = Prozent;
+input Abs_Proz SL_Grenze        = Pips;
 
 // Nachziehen des TP
 // Auf 0 setzen damit kein Nachziehen des TP erfolgt
-extern double TP_Trail_Pips     = 15;
-extern double TP_Trail_Percent  = 0.15;
-input Abs_Proz TP_Trail_Grenze  = Prozent; 
-// Nachziehen des SL
-//extern double SLTrailPips       = 15;
-//extern double SLTrailPercent    = 0.15;
-//input Abs_Proz SLTrail_Grenze   = Prozent; 
+extern double TP_Trail_Pips     = 10;
+extern double TP_Trail_Percent  = 0.10;
+input Abs_Proz TP_Trail_Grenze  = Pips;
+extern double SL_Trail_Pips     = 5;
+extern double SL_Trail_Percent  = 0.05;
+input Abs_Proz SL_Trail_Grenze  = Pips;
 
 extern int MaxRetry             = 10;
 
@@ -66,7 +65,7 @@ int OrderManager_Init() {
 int manageOrders(int myMagicNumber) {
 
   int rc, Retry, Ticket;
-  double Anpassung, TPPips, SLPips, TPTrailPips, TP, SL;
+  double Anpassung, TPPips, SLPips, TPTrailPips, TP, SL, SLTrailPips;
 
   // Bearbeitung aller offenen Trades
   if (DebugLevel > 2) Print(OrderSymbol()," Orderbuch auslesen (Total alle Symbole: ",OrdersTotal(),")");
@@ -88,9 +87,11 @@ int manageOrders(int myMagicNumber) {
     SLPips = calcPips(SL_Grenze, SL_Percent, SL_Pips);
     // Falls TPTrailPercent angegeben ist, wird TPTrailPips errechnet
     TPTrailPips = calcPips(TP_Trail_Grenze, TP_Trail_Percent, TP_Trail_Pips);
+    // Falls TPTrailPercent angegeben ist, wird TPTrailPips errechnet
+    SLTrailPips = calcPips(SL_Trail_Grenze, SL_Trail_Percent, SL_Trail_Pips);
   
-    TP = bestimmeTP(Anpassung, TPPips, TPTrailPips);
-    SL = bestimmeSL(TP, SLPips);
+    TP = bestimmeTP(Anpassung, OrderTakeProfit(), TPPips, TPTrailPips, OrderStopLoss(), SLPips, SLTrailPips);
+    SL = bestimmeSL(Anpassung, OrderTakeProfit(), TPPips, TPTrailPips, OrderStopLoss(), SLPips, SLTrailPips);
   
     if (SL != OrderStopLoss() || TP != OrderTakeProfit()) {
       if (DebugLevel > 1) {
@@ -159,66 +160,72 @@ double calcPips(double Grenze, double Prozent, double Pips) {
 //+------------------------------------------------------------------+
 //| TP bestimmen                                                     |
 //+------------------------------------------------------------------+
-double bestimmeTP(double Anpassung, double TPPips, double TPTrailPips) {
+double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
   int OrderDigits = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
-  double TakeProfit = OrderTakeProfit();
   MqlTick tick;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      TakeProfit = fmax(fmax(TakeProfit, OrderOpenPrice()+TPPips), tick.ask+Anpassung*TPTrailPips);
+      TP = fmax(fmax(TP, OrderOpenPrice()+TPPips), tick.ask+Anpassung*TPTrailPips);
     } else {
-      TakeProfit = fmin(fmax(TakeProfit, OrderOpenPrice()-TPPips), tick.bid-Anpassung*TPTrailPips);
+      TP = fmin(fmax(TP, OrderOpenPrice()-TPPips), tick.bid-Anpassung*TPTrailPips);
     }
 
-    if (TakeProfit != OrderTakeProfit()) {
+    if (TP != OrderTakeProfit()) {
       double roundhelper = 2*pow(10, OrderDigits-1);
-      TakeProfit = NormalizeDouble(round(roundhelper*TakeProfit)/roundhelper, OrderDigits-1);
-      if ((DebugLevel > 0) && (TakeProfit != OrderTakeProfit())) {
+      TP = NormalizeDouble(round(roundhelper*TP)/roundhelper, OrderDigits-1);
+      if ((DebugLevel > 0) && (TP != OrderTakeProfit())) {
         string typ;
         if (OrderType() == OP_BUY) {
           typ = "long";
         } else {
           typ = "short";
         }
-        Print(OrderSymbol()," TakeProfit neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt TakeProfit: ", OrderTakeProfit(), " neu TakeProfit: ", TakeProfit);
+        Print(OrderSymbol()," TakeProfit neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt TakeProfit: ", OrderTakeProfit(), " neu TakeProfit: ", TP);
       }
     }
   }
 
-  return(TakeProfit);
+  return(TP);
 }
 
 
 //+------------------------------------------------------------------+
 //| SL bestimmen                                                     |
 //+------------------------------------------------------------------+
-double bestimmeSL(double TakeProfit, double SLPips) {
-  double StopLoss = OrderStopLoss();
+double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
   int OrderDigits = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
   MqlTick tick;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      StopLoss = tick.bid - fmin(SLPips, fmin(TakeProfit-tick.bid, tick.bid-StopLoss));
+      if (SL == 0) {
+        SL = tick.bid - SLPips;                                             // Initialisierung
+      } else {
+        if (TP-tick.bid < TPTrailPips) SL = fmax(SL, tick.bid-SLTrailPips); // Trailing SL falls TP erhoeht wird; SL wird nie verringert
+      }
     } else {
-      StopLoss = tick.ask + fmin(SLPips, fmin(tick.ask-TakeProfit, fabs(StopLoss-tick.ask))); // fabs, falls StopLoss nicht gesetzt ist (0)
+      if (SL == 0) {
+        SL = tick.ask + SLPips;                                             // Initialisierung
+      } else {
+        if (tick.ask-TP < TPTrailPips) SL = fmin(SL, tick.ask+SLTrailPips); // Trailing SL falls TP verringert wird; SL wird nie erhoeht
+      }
     }
 
-    if (StopLoss != OrderStopLoss()) {
+    if (SL != OrderStopLoss()) {
       double roundhelper = 2*pow(10, OrderDigits-1);
-      StopLoss = NormalizeDouble(round(roundhelper*StopLoss)/roundhelper, OrderDigits-1);
-      if ((DebugLevel > 0) && (StopLoss != OrderStopLoss())) {
+      SL = NormalizeDouble(round(roundhelper*SL)/roundhelper, OrderDigits-1);
+      if ((DebugLevel > 0) && (SL != OrderStopLoss())) {
         string typ;
         if (OrderType() == OP_BUY) {
           typ = "long";
         } else {
           typ = "short";
         }
-        Print(OrderSymbol()," StopLoss neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt StopLoss: ", OrderStopLoss(), " neu StopLoss: ", StopLoss);
+        Print(OrderSymbol()," StopLoss neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt StopLoss: ", OrderStopLoss(), " neu StopLoss: ", SL);
       }
     }
   }
 
-  return(StopLoss);
+  return(SL);
 }

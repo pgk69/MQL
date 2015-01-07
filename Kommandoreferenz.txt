@@ -14,12 +14,12 @@ EA an Perl:
     Bridge up:   status|[account name] bridge {"status": "up",
                                                "pair":   "[gehandeltes Symbol]", 
                                                "time":   "[aktueller Zeitstempel]"}
-                 status|testaccount bridge {"status": "up",
+           Bsp.: status|testaccount bridge {"status": "up",
                                             "pair":   "EURUSD", 
                                             "time":   "1355775144"}
                                             
     Bridge down: status|[account name] bridge {"status": "down"}
-                 status|testaccount bridge {"status": "down"}
+           Bsp.: status|testaccount bridge {"status": "down"}
 
 
   Infos:
@@ -27,7 +27,7 @@ EA an Perl:
                                            "bid":  "[Geldkurs]",
                                            "ask":  "[Briefkurs]",
                                            "time": "[aktueller Zeitstempel]"}
-                 info|[account name] tick {"pair": "EURUSD",
+           Bsp.: info|[account name] tick {"pair": "EURUSD",
                                            "bid":  "1.2405",
                                            "ask":  "1.2401",
                                            "time": "1355775144"}
@@ -36,7 +36,7 @@ EA an Perl:
                                               "balance":    "[Balance]",
                                               "margin":     "[Margin]",
                                               "freemargin": "[freie Margin]"}          
-                 info|[account name] account {"leverage":   "400",
+           Bsp.: info|[account name] account {"leverage":   "400",
                                               "balance":    "24005.49",
                                               "margin":     "240.54",
                                               "freemargin": "23543,44"}          
@@ -46,7 +46,7 @@ EA an Perl:
                                           "ima_long":  "[iMA long]",
                                           "ema_short": "[EMA short]",
                                           "ima_short": "[iMA short]"}          
-                 info|[account name] ema {"pair":      "EUSUSD",
+           Bsp.: info|[account name] ema {"pair":      "EUSUSD",
                                           "ema_long":  "1",
                                           "ima_long":  "7",
                                           "ema_short": "3",
@@ -61,7 +61,7 @@ EA an Perl:
                                             "open_time":   "[Eröffnungszeit]",  
                                             "expire_time": "[Gültigkeitsdauer]", 
                                             "lot":         "[Anzahl Lots]"}
-                 info|testaccount order {"pair":        "EURUSD", 
+           Bsp.: info|testaccount order {"pair":        "EURUSD", 
                                          "type":        "OP_BUY", 
                                          "ticket":      "43916144", 
                                          "open_price":  "1.2405", 
@@ -70,12 +70,21 @@ EA an Perl:
                                          "open_time":   "1355773442", 
                                          "expire_time": "1355786556", 
                                          "lot":         "0.5"}
+                                        {"pair":        "EURUSD", 
+                                         "type":        "OP_BUY", 
+                                         "ticket":      "4397556", 
+                                         "open_price":  "1.2415", 
+                                         "take_profit": "1.2440", 
+                                         "stop_loss":   "1.2315", 
+                                         "open_time":   "1355779882", 
+                                         "expire_time": "1355789230", 
+                                         "lot":         "0.5"}
          
   
   Responses:
     Get Parameter:
                  response|[account name] {"account":  "[Accountnummer]",
-                                          "referenz": "[Referenz ID]",
+                                          "uuid":     "[UUID]",
                                           "cmd":      "get_parameter",
                                           "status":   "[0|1]",
                                           "msg":      "Parameter read [Name]:[Wert]",
@@ -84,7 +93,7 @@ EA an Perl:
   
     Set Parameter:
                  response|[account name] {"account":  "[Accountnummer]",
-                                          "referenz": "[Referenz ID]",
+                                          "uuid":     "[UUID]",
                                           "cmd":      "set_parameter",
                                           "status":   "[0|1]",
                                           "msg":      "Parameter read [Name]:[Wert]",
@@ -92,28 +101,28 @@ EA an Perl:
                                           "value":    "[zu setzender Wert]"}
   
     Trade set:   response|[account name] {"account":  "[Accountnummer]"
-                                          "referenz": "[Referenz ID]",
+                                          "uuid":     "[UUID]",
                                           "cmd":      "set",
                                           "status":   "[0|1]",
                                           "ticket":   "[Ticket ID]",
                                           "msg":      "Order has been set: [Ticket ID]"}
   
     Trade reset: response|[account name] {"account":  "[Accountnummer]",
-                                          "referenz": "[Referenz ID]",
+                                          "uuid":     "[UUID]",
                                           "cmd":      "reset",
                                           "status":   "[0|1]",
                                           "ticket":   "[Ticket ID]",
                                           "msg":      "Order has been modified: [Ticket ID]"}
   
     Trade unset: response|[account name] {"account":  "[Accountnummer]",
-                                          "referenz": "[Referenz ID]",
+                                          "uuid":     "[UUID]",
                                           "cmd":      "unset",
                                           "status":   "[0|1]",
                                           "ticket":   "[Ticket ID]",
                                           "msg":      "Order has been closed: [Ticket ID]"}
   
     Draw:        response|[account name] {"account":  "[Accountnummer]",
-                                          "referenz": "[Referenz ID]",
+                                          "uuid":     "[UUID]",
                                           "cmd":      "draw",
                                           "status":   "[0|1]"}
   
@@ -123,38 +132,38 @@ Perl an EA:
 
   Kommando get_parameter:
 
-    Request Value: cmd|[account name] {"cmd":      "get_parameter",
-                                       "referenz": "[Referenz ID]",
-                                       "name":     "[abgefragter Wert]"}
-                   cmd|testaccount {"cmd":      "set_parameter",
-                                    "referenz": "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                    "name":     "pair"}
+    Request Value: cmd|[account name] {"cmd":  "get_parameter",
+                                       "uuid": "[UUID]",
+                                       "name": "[abgefragter Wert]"}
+             Bsp.: cmd|testaccount {"cmd":  "set_parameter",
+                                    "uuid": "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                    "name": "pair"}
                        
     Erwarteter Response: Get Parameter
-              account:  [Accountnummer]
-              referenz: [Referenz ID]
-              cmd:      "get_parameter"
-              status:   0: Nicht erfolgreich
-                        1: Erfolgreich
-              msg:      "Parameter read [Name]:[Wert]"
-              name:     [Name]
-              value:    [Wert]
+              account: [Accountnummer]
+              uuid:    [UUID]
+              cmd:     "get_parameter"
+              status:  0: Nicht erfolgreich
+                       1: Erfolgreich
+              msg:     "Parameter read [Name]:[Wert]"
+              name:    [Name]
+              value:   [Wert]
 
 
   Kommando set_parameter:
 
-    Request Value: cmd|[account name] {"cmd":      "set_parameter",
-                                       "referenz": "[Referenz ID]",
-                                       "name":     "[zu setzender Parameter]",
-                                       "value":    "[zu setzender Wert]"}
-                   cmd|testaccount {"cmd":      "set_parameter",
-                                    "referenz": "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                    "name":     "Wait_for_Message",
-                                    "value":    "0"}
+    Request Value: cmd|[account name] {"cmd":   "set_parameter",
+                                       "uuid":  "[UUID]",
+                                       "name":  "[zu setzender Parameter]",
+                                       "value": "[zu setzender Wert]"}
+             Bsp.: cmd|testaccount {"cmd":   "set_parameter",
+                                    "uuid":  "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                    "name":  "Wait_for_Message",
+                                    "value": "0"}
                        
     Erwarteter Response: Set Parameter 
               account:  [Accountnummer]
-              referenz: [Referenz ID]
+              uuid:     [UUID]
               cmd:      "set_parameter"
               status:   0: Nicht erfolgreich
                         1: Erfolgreich
@@ -166,7 +175,7 @@ Perl an EA:
   Kommando set:
 
     New Trade/Order: cmd|[account name] {"cmd":          "set",
-                                         "referenz":     "[Referenz ID]",
+                                         "uuid":         "[Referenz ID]",
                                          "type":         "[Orderart]", 
                                          "pair":         "[gehandeltes Symbol]", 
                                          "open_price":   "[Eröffnungskurs]",
@@ -175,19 +184,17 @@ Perl an EA:
                                          "comment":      "[Kommentar]", 
                                          "take_profit":  "[TakeProfit]", 
                                          "stop_loss":    "[StoppLoss]", 
-                                         "signal":       "[Signal ID]", 
                                          "lot":          "[Anzahl Lots]"}
-                     cmd|testaccount {"cmd":          "set",
-                                      "referenz":     "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+               Bsp.: cmd|testaccount {"cmd":          "set",
+                                      "uuid":         "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
                                       "type":         "2", 
                                       "pair":         "EURUSD", 
                                       "open_price":   "1.25", 
                                       "slippage":     "0.1", 
                                       "magic_number": "11041963", 
-                                      "comment":      "Opened by FxAssist",  
+                                      "comment":      "4162F712-1DD2-11B2-B17E-C09EFE1DC403:FxAssist:ST",  
                                       "take_profit":  "1.2503", 
                                       "stop_loss":    "1.2450", 
-                                      "signal":       "1225", 
                                       "lot":          "0.5"}
   
     Trade Types:
@@ -200,7 +207,7 @@ Perl an EA:
 
     Erwarteter Response: Trade set
               account:  [Accountnummer]
-              referenz: [Referenz ID]
+              uuid:     [UUID]
               cmd:      "set"
               status:   0: Nicht erfolgreich
                         1: Erfolgreich
@@ -211,12 +218,12 @@ Perl an EA:
   Kommando reset:
    
     Update Trade:  cmd|[account name] {"cmd":         "reset",
-                                       "referenz":    "[Referenz ID]",
+                                       "uuid":        "[UUID]",
                                        "ticket":      "[Ticket ID]", 
                                        "take_profit": "[TakeProfit]", 
                                        "stop_loss":   "[StoppLoss]"}
-                   cmd|testaccount {"cmd":         "reset",
-                                    "referenz":    "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+             Bsp.: cmd|testaccount {"cmd":         "reset",
+                                    "uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
                                     "ticket":      "43916144", 
                                     "take_profit": "1.2515", 
                                     "stop_loss":   "1.2502"}
@@ -226,8 +233,8 @@ Perl an EA:
                                            "take_profit": "[TakeProfit]", 
                                            "stop_loss":   "[StoppLoss]",
                                            "open_price":  "[Eröffnungskurs]"}
-                       cmd|testaccount {"cmd":         "reset",
-                                        "referenz":    "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                 Bsp.: cmd|testaccount {"cmd":         "reset",
+                                        "uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
                                         "ticket":      "43916144", 
                                         "take_profit": "1.2515", 
                                         "stop_loss":   "1.2502",
@@ -235,7 +242,7 @@ Perl an EA:
     
     Erwarteter Response: Trade reset
               account:  [Accountnummer]
-              referenz: [Referenz ID]
+              uuid:     [UUID]
               cmd:      "reset"
               status:   0: Nicht erfolgreich
                         1: Erfolgreich
@@ -245,16 +252,16 @@ Perl an EA:
 
   Kommando unset:
 
-    Close Trade/Order: cmd|[account name] {"cmd":      "unset",
-                                           "referenz": "[Referenz ID]",
-                                           "ticket":   "[Ticket ID]"}
-                       cmd|testaccount {"cmd":      "unset",
-                                        "referenz": "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                        "ticket":   "43916144"}
+    Close Trade/Order: cmd|[account name] {"cmd":    "unset",
+                                           "uuid":   "[UUID]",
+                                           "ticket": "[Ticket ID]"}
+                 Bsp.: cmd|testaccount {"cmd":    "unset",
+                                        "uuid":   "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                        "ticket": "43916144"}
 
     Erwarteter Response: Trade unset
               account:  [Accountnummer]
-              referenz: [Referenz ID]
+              uuid:     [UUID]
               cmd:      "unset"
               status:   0: Nicht erfolgreich
                         1: Erfolgreich
@@ -264,14 +271,14 @@ Perl an EA:
   Kommando draw:
 
     Draw Object:   cmd|[account name] {"cmd":         "draw",
-                                       "referenz":    "[Referenz ID]",
+                                       "uuid":        "[UUID]",
                                        "obj_type":    "[Objekt Type]", 
                                        "open_price":  "[Eröffnungskurs]", 
                                        "close_price": "[Schlußkurs]",
                                        "close_time":  "[Schlußzeit]",
                                        "prediction":  "[Prediction]"}
-                   cmd|testaccount {"cmd":         "draw",
-                                    "referenz":    "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+             Bsp.: cmd|testaccount {"cmd":         "draw",
+                                    "uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
                                     "object_type": "OBJ_ARROW", 
                                     "open_price":  "1.2054", 
                                     "close_time":  "753324221",
@@ -280,7 +287,7 @@ Perl an EA:
 
     Erwarteter Response: Draw
               account:  [Accountnummer]
-              referenz: [Referenz ID]
+              uuid:     [UUID]
               cmd:      "unset"
               status:   0: Nicht erfolgreich
                         1: Erfolgreich
