@@ -11,74 +11,74 @@ Quittung empfangen wurde
 EA an Perl:
 
   Status:
-    Bridge up:   status|[account name] bridge {"status": "up",
-                                               "pair":   "[gehandeltes Symbol]", 
-                                               "time":   "[aktueller Zeitstempel]"}
-           Bsp.: status|testaccount bridge {"status": "up",
-                                            "pair":   "EURUSD", 
-                                            "time":   "1355775144"}
+    Bridge up:   bridge|[account name] {"status": "up",
+                                        "pair":   "[gehandeltes Symbol]", 
+                                        "time":   "[aktueller Zeitstempel]"}
+           Bsp.: bridge|testaccount {"status": "up",
+                                     "pair":   "EURUSD", 
+                                     "time":   "1355775144"}
                                             
-    Bridge down: status|[account name] bridge {"status": "down"}
-           Bsp.: status|testaccount bridge {"status": "down"}
+    Bridge down: bridge|[account name] {"status": "down"}
+           Bsp.: bridge|testaccount {"status": "down"}
 
 
   Infos:
-    Tick:        info|[account name] tick {"pair": "[gehandeltes Symbol]",
-                                           "bid":  "[Geldkurs]",
-                                           "ask":  "[Briefkurs]",
-                                           "time": "[aktueller Zeitstempel]"}
-           Bsp.: info|[account name] tick {"pair": "EURUSD",
-                                           "bid":  "1.2405",
-                                           "ask":  "1.2401",
-                                           "time": "1355775144"}
+    Tick:        tick|[account name] {"pair": "[gehandeltes Symbol]",
+                                      "bid":  "[Geldkurs]",
+                                      "ask":  "[Briefkurs]",
+                                      "time": "[aktueller Zeitstempel]"}
+           Bsp.: tick|[account name] {"pair": "EURUSD",
+                                      "bid":  "1.2405",
+                                      "ask":  "1.2401",
+                                      "time": "1355775144"}
 
-    Accountinfo  info|[account name] account {"leverage":   "[Leverage]",
-                                              "balance":    "[Balance]",
-                                              "margin":     "[Margin]",
-                                              "freemargin": "[freie Margin]"}          
-           Bsp.: info|[account name] account {"leverage":   "400",
-                                              "balance":    "24005.49",
-                                              "margin":     "240.54",
-                                              "freemargin": "23543,44"}          
+    Accountinfo  account|[account name] {"leverage":   "[Leverage]",
+                                         "balance":    "[Balance]",
+                                         "margin":     "[Margin]",
+                                         "freemargin": "[freie Margin]"}          
+           Bsp.: account|[account name] {"leverage":   "400",
+                                         "balance":    "24005.49",
+                                         "margin":     "240.54",
+                                         "freemargin": "23543,44"}          
 
-    EMAinfo      info|[account name] ema {"pair":      "[gehandeltes Symbol]",
-                                          "ema_long":  "[EMA long]",
-                                          "ima_long":  "[iMA long]",
-                                          "ema_short": "[EMA short]",
-                                          "ima_short": "[iMA short]"}          
-           Bsp.: info|[account name] ema {"pair":      "EUSUSD",
-                                          "ema_long":  "1",
-                                          "ima_long":  "7",
-                                          "ema_short": "3",
-                                          "ima_short": "5"}          
+    EMAinfo      ema|[account name] {"pair":      "[gehandeltes Symbol]",
+                                     "ema_long":  "[EMA long]",
+                                     "ima_long":  "[iMA long]",
+                                     "ema_short": "[EMA short]",
+                                     "ima_short": "[iMA short]"}          
+           Bsp.: ema|[account name] {"pair":      "EUSUSD",
+                                     "ema_long":  "1",
+                                     "ima_long":  "7",
+                                     "ema_short": "3",
+                                     "ima_short": "5"}          
                  
-    Orders:      info|[account name] order {"pair":        "[gehandeltes Symbol]", 
-                                            "type":        "[Orderart]", 
-                                            "ticket":      "[Ticket ID]", 
-                                            "open_price":  "[Eröffnungskurs]", 
-                                            "take_profit": "[TakeProfit]", 
-                                            "stop_loss":   "[StoppLoss]", 
-                                            "open_time":   "[Eröffnungszeit]",  
-                                            "expire_time": "[Gültigkeitsdauer]", 
-                                            "lot":         "[Anzahl Lots]"}
-           Bsp.: info|testaccount order {"pair":        "EURUSD", 
-                                         "type":        "OP_BUY", 
-                                         "ticket":      "43916144", 
-                                         "open_price":  "1.2405", 
-                                         "take_profit": "1.2430", 
-                                         "stop_loss":   "1.2305", 
-                                         "open_time":   "1355773442", 
-                                         "expire_time": "1355786556", 
-                                         "lot":         "0.5"}
-                                        {"pair":        "EURUSD", 
-                                         "type":        "OP_BUY", 
-                                         "ticket":      "4397556", 
-                                         "open_price":  "1.2415", 
-                                         "take_profit": "1.2440", 
-                                         "stop_loss":   "1.2315", 
-                                         "open_time":   "1355779882", 
-                                         "expire_time": "1355789230", 
-                                         "lot":         "0.5"}
+    Orders:      orders|[account name] {"pair":        "[gehandeltes Symbol]", 
+                                        "type":        "[Orderart]", 
+                                        "ticket":      "[Ticket ID]", 
+                                        "open_price":  "[Eröffnungskurs]", 
+                                        "take_profit": "[TakeProfit]", 
+                                        "stop_loss":   "[StoppLoss]", 
+                                        "open_time":   "[Eröffnungszeit]",  
+                                        "expire_time": "[Gültigkeitsdauer]", 
+                                        "lot":         "[Anzahl Lots]"}
+           Bsp.: orders|testaccount {"pair":        "EURUSD", 
+                                     "type":        "OP_BUY", 
+                                     "ticket":      "43916144", 
+                                     "open_price":  "1.2405", 
+                                     "take_profit": "1.2430", 
+                                     "stop_loss":   "1.2305", 
+                                     "open_time":   "1355773442", 
+                                     "expire_time": "1355786556", 
+                                     "lot":         "0.5"}
+                                    {"pair":        "EURUSD", 
+                                     "type":        "OP_BUY", 
+                                     "ticket":      "4397556", 
+                                     "open_price":  "1.2415", 
+                                     "take_profit": "1.2440", 
+                                     "stop_loss":   "1.2315", 
+                                     "open_time":   "1355779882", 
+                                     "expire_time": "1355789230", 
+                                     "lot":         "0.5"}
          
   
   Responses:
@@ -96,7 +96,7 @@ EA an Perl:
                                           "uuid":     "[UUID]",
                                           "cmd":      "set_parameter",
                                           "status":   "[0|1]",
-                                          "msg":      "Parameter read [Name]:[Wert]",
+                                          "msg":      "Parameter set [Name]:[Wert]",
                                           "name":     "[zu setzender Parameter]",
                                           "value":    "[zu setzender Wert]"}
   
@@ -132,12 +132,10 @@ Perl an EA:
 
   Kommando get_parameter:
 
-    Request Value: cmd|[account name] {"cmd":  "get_parameter",
-                                       "uuid": "[UUID]",
-                                       "name": "[abgefragter Wert]"}
-             Bsp.: cmd|testaccount {"cmd":  "set_parameter",
-                                    "uuid": "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                    "name": "pair"}
+    Request Value: get_parameter|[account name] {"uuid": "[UUID]",
+                                                 "name": "[abgefragter Wert]"}
+             Bsp.: get_parameter|testaccount {"uuid": "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                              "name": "pair"}
                        
     Erwarteter Response: Get Parameter
               account: [Accountnummer]
@@ -152,14 +150,12 @@ Perl an EA:
 
   Kommando set_parameter:
 
-    Request Value: cmd|[account name] {"cmd":   "set_parameter",
-                                       "uuid":  "[UUID]",
-                                       "name":  "[zu setzender Parameter]",
-                                       "value": "[zu setzender Wert]"}
-             Bsp.: cmd|testaccount {"cmd":   "set_parameter",
-                                    "uuid":  "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                    "name":  "Wait_for_Message",
-                                    "value": "0"}
+    Request Value: set_parameter|[account name] {"uuid":  "[UUID]",
+                                                 "name":  "[zu setzender Parameter]",
+                                                 "value": "[zu setzender Wert]"}
+             Bsp.: set_parameter|testaccount {"uuid":  "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                              "name":  "Wait_for_Message",
+                                              "value": "0"}
                        
     Erwarteter Response: Set Parameter 
               account:  [Accountnummer]
@@ -174,8 +170,7 @@ Perl an EA:
 
   Kommando set:
 
-    New Trade/Order: cmd|[account name] {"cmd":          "set",
-                                         "uuid":         "[Referenz ID]",
+    New Trade/Order: set|[account name] {"uuid":         "[Referenz ID]",
                                          "type":         "[Orderart]", 
                                          "pair":         "[gehandeltes Symbol]", 
                                          "open_price":   "[Eröffnungskurs]",
@@ -185,8 +180,7 @@ Perl an EA:
                                          "take_profit":  "[TakeProfit]", 
                                          "stop_loss":    "[StoppLoss]", 
                                          "lot":          "[Anzahl Lots]"}
-               Bsp.: cmd|testaccount {"cmd":          "set",
-                                      "uuid":         "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+               Bsp.: set|testaccount {"uuid":         "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
                                       "type":         "2", 
                                       "pair":         "EURUSD", 
                                       "open_price":   "1.25", 
@@ -217,28 +211,24 @@ Perl an EA:
   
   Kommando reset:
    
-    Update Trade:  cmd|[account name] {"cmd":         "reset",
-                                       "uuid":        "[UUID]",
-                                       "ticket":      "[Ticket ID]", 
-                                       "take_profit": "[TakeProfit]", 
-                                       "stop_loss":   "[StoppLoss]"}
-             Bsp.: cmd|testaccount {"cmd":         "reset",
-                                    "uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                    "ticket":      "43916144", 
-                                    "take_profit": "1.2515", 
-                                    "stop_loss":   "1.2502"}
+    Update Trade:  reset|[account name] {"uuid":        "[UUID]",
+                                         "ticket":      "[Ticket ID]", 
+                                         "take_profit": "[TakeProfit]", 
+                                         "stop_loss":   "[StoppLoss]"}
+             Bsp.: reset|testaccount {"uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                      "ticket":      "43916144", 
+                                      "take_profit": "1.2515", 
+                                      "stop_loss":   "1.2502"}
     
-    Update Order neu:  cmd|[account name] {"cmd":         "reset",
-                                           "ticket":      "[Ticket ID]", 
-                                           "take_profit": "[TakeProfit]", 
-                                           "stop_loss":   "[StoppLoss]",
-                                           "open_price":  "[Eröffnungskurs]"}
-                 Bsp.: cmd|testaccount {"cmd":         "reset",
-                                        "uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                        "ticket":      "43916144", 
-                                        "take_profit": "1.2515", 
-                                        "stop_loss":   "1.2502",
-                                        "open_price":  "1.2507"}
+    Update Order neu:  reset|[account name] {"ticket":      "[Ticket ID]", 
+                                             "take_profit": "[TakeProfit]", 
+                                             "stop_loss":   "[StoppLoss]",
+                                             "open_price":  "[Eröffnungskurs]"}
+                 Bsp.: reset|testaccount {"uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                          "ticket":      "43916144", 
+                                          "take_profit": "1.2515", 
+                                          "stop_loss":   "1.2502",
+                                          "open_price":  "1.2507"}
     
     Erwarteter Response: Trade reset
               account:  [Accountnummer]
@@ -252,12 +242,10 @@ Perl an EA:
 
   Kommando unset:
 
-    Close Trade/Order: cmd|[account name] {"cmd":    "unset",
-                                           "uuid":   "[UUID]",
-                                           "ticket": "[Ticket ID]"}
-                 Bsp.: cmd|testaccount {"cmd":    "unset",
-                                        "uuid":   "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                        "ticket": "43916144"}
+    Close Trade/Order: unset|[account name] {"uuid":   "[UUID]",
+                                             "ticket": "[Ticket ID]"}
+                 Bsp.: unset|testaccount {"uuid":   "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                          "ticket": "43916144"}
 
     Erwarteter Response: Trade unset
               account:  [Accountnummer]
@@ -270,20 +258,18 @@ Perl an EA:
      
   Kommando draw:
 
-    Draw Object:   cmd|[account name] {"cmd":         "draw",
-                                       "uuid":        "[UUID]",
-                                       "obj_type":    "[Objekt Type]", 
-                                       "open_price":  "[Eröffnungskurs]", 
-                                       "close_price": "[Schlußkurs]",
-                                       "close_time":  "[Schlußzeit]",
-                                       "prediction":  "[Prediction]"}
-             Bsp.: cmd|testaccount {"cmd":         "draw",
-                                    "uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
-                                    "object_type": "OBJ_ARROW", 
-                                    "open_price":  "1.2054", 
-                                    "close_time":  "753324221",
-                                    "close_price": "1.2234",
-                                    "prediction":  "0.7"}
+    Draw Object:   draw|[account name] {"uuid":        "[UUID]",
+                                        "obj_type":    "[Objekt Type]", 
+                                        "open_price":  "[Eröffnungskurs]", 
+                                        "close_price": "[Schlußkurs]",
+                                        "close_time":  "[Schlußzeit]",
+                                        "prediction":  "[Prediction]"}
+             Bsp.: draw|testaccount {"uuid":        "4162F712-1DD2-11B2-B17E-C09EFE1DC403",
+                                     "object_type": "OBJ_ARROW", 
+                                     "open_price":  "1.2054", 
+                                     "close_time":  "753324221",
+                                     "close_price": "1.2234",
+                                     "prediction":  "0.7"}
 
     Erwarteter Response: Draw
               account:  [Accountnummer]
