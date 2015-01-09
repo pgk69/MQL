@@ -49,6 +49,7 @@ extern int DebugLevel           = 1;
 //          protokolliert
 
 //--- Global variables
+bool newTP;
 
 
 //+------------------------------------------------------------------+
@@ -166,6 +167,7 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
   double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
   MqlTick tick;
 
+  newTP = false;
   if (SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
       TP = fmax(fmax(TP, OrderOpenPrice()+TPPips), tick.ask+Anpassung*TPTrailPips);
@@ -174,6 +176,7 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
     }
 
     if (TP != OrderTakeProfit()) {
+      newTP = true;
       TP = NormalizeDouble(OrderTradeTickSize*round(TP/OrderTradeTickSize), OrderDigits);
       if ((DebugLevel > 0) && (TP != OrderTakeProfit())) {
         string typ;
@@ -204,13 +207,13 @@ double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips
       if (SL == 0) {
         SL = tick.bid - SLPips;                                             // Initialisierung
       } else {
-        if (TP-tick.bid < TPTrailPips) SL = fmax(SL, tick.bid-SLTrailPips); // Trailing SL falls TP erhoeht wird; SL wird nie verringert
+        if (newTP || (TP-tick.bid < TPTrailPips)) SL = fmax(SL, tick.bid-SLTrailPips); // Trailing SL falls TP erhoeht wird; SL wird nie verringert
       }
     } else {
       if (SL == 0) {
         SL = tick.ask + SLPips;                                             // Initialisierung
       } else {
-        if (tick.ask-TP < TPTrailPips) SL = fmin(SL, tick.ask+SLTrailPips); // Trailing SL falls TP verringert wird; SL wird nie erhoeht
+        if (newTP || (tick.ask-TP < TPTrailPips)) SL = fmin(SL, tick.ask+SLTrailPips); // Trailing SL falls TP verringert wird; SL wird nie erhoeht
       }
     }
 
