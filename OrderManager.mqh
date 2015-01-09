@@ -161,7 +161,7 @@ double calcPips(double Grenze, double Prozent, double Pips) {
 //| TP bestimmen                                                     |
 //+------------------------------------------------------------------+
 double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
-  int OrderDigits = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  double PricechangePerTick = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
   MqlTick tick;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
@@ -172,8 +172,7 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
     }
 
     if (TP != OrderTakeProfit()) {
-      double roundhelper = 2*pow(10, OrderDigits-1);
-      TP = NormalizeDouble(round(roundhelper*TP)/roundhelper, OrderDigits-1);
+      TP = NormalizeDouble(PricechangePerTick * round(TP / PricechangePerTick));
       if ((DebugLevel > 0) && (TP != OrderTakeProfit())) {
         string typ;
         if (OrderType() == OP_BUY) {
@@ -194,7 +193,7 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
 //| SL bestimmen                                                     |
 //+------------------------------------------------------------------+
 double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
-  int OrderDigits = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  double PricechangePerTick = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
   MqlTick tick;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
@@ -213,8 +212,7 @@ double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips
     }
 
     if (SL != OrderStopLoss()) {
-      double roundhelper = 2*pow(10, OrderDigits-1);
-      SL = NormalizeDouble(round(roundhelper*SL)/roundhelper, OrderDigits-1);
+      SL = NormalizeDouble(PricechangePerTick * round(SL / PricechangePerTick));
       if ((DebugLevel > 0) && (SL != OrderStopLoss())) {
         string typ;
         if (OrderType() == OP_BUY) {
