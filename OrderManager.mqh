@@ -22,19 +22,19 @@ enum Abs_Proz
   };
 
 // initialer Abstand des TP/SL zum Einstiegskurs
-extern double TP_Pips           = 30;
+extern double TP_Pips           = 300;
 extern double TP_Percent        = 0.3;
 input Abs_Proz TP_Grenze        = Pips; 
-extern double SL_Pips           = 30;
+extern double SL_Pips           = 300;
 extern double SL_Percent        = 0.3;
 input Abs_Proz SL_Grenze        = Pips;
 
 // Nachziehen des TP
 // Auf 0 setzen damit kein Nachziehen des TP erfolgt
-extern double TP_Trail_Pips     = 10;
+extern double TP_Trail_Pips     = 100;
 extern double TP_Trail_Percent  = 0.10;
 input Abs_Proz TP_Trail_Grenze  = Pips;
-extern double SL_Trail_Pips     = 5;
+extern double SL_Trail_Pips     = 50;
 extern double SL_Trail_Percent  = 0.05;
 input Abs_Proz SL_Trail_Grenze  = Pips;
 
@@ -142,7 +142,7 @@ double indFaktor() {
 double calcPips(double Grenze, double Prozent, double Pips) {
   double newPips;
   MqlTick tick;
-
+  
   if(Grenze && Prozent && SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
       newPips = Prozent/100 * tick.ask;
@@ -150,8 +150,9 @@ double calcPips(double Grenze, double Prozent, double Pips) {
       newPips = Prozent/100 * tick.bid;
     }
   } else {
-    newPips = 10*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Pips;
+    newPips = SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Pips;
   }
+  // Print("Old: " + Pips + "  Neu: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE));
  
   return(newPips);
 }
@@ -161,7 +162,8 @@ double calcPips(double Grenze, double Prozent, double Pips) {
 //| TP bestimmen                                                     |
 //+------------------------------------------------------------------+
 double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
-  int OrderDigits = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
   MqlTick tick;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
@@ -172,8 +174,7 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
     }
 
     if (TP != OrderTakeProfit()) {
-      double roundhelper = 2*pow(10, OrderDigits-1);
-      TP = NormalizeDouble(round(roundhelper*TP)/roundhelper, OrderDigits-1);
+      TP = NormalizeDouble(OrderTradeTickSize*round(TP/OrderTradeTickSize), OrderDigits);
       if ((DebugLevel > 0) && (TP != OrderTakeProfit())) {
         string typ;
         if (OrderType() == OP_BUY) {
@@ -194,7 +195,8 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
 //| SL bestimmen                                                     |
 //+------------------------------------------------------------------+
 double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
-  int OrderDigits = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
   MqlTick tick;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
@@ -213,8 +215,7 @@ double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips
     }
 
     if (SL != OrderStopLoss()) {
-      double roundhelper = 2*pow(10, OrderDigits-1);
-      SL = NormalizeDouble(round(roundhelper*SL)/roundhelper, OrderDigits-1);
+      SL = NormalizeDouble(OrderTradeTickSize*round(SL/OrderTradeTickSize), OrderDigits);
       if ((DebugLevel > 0) && (SL != OrderStopLoss())) {
         string typ;
         if (OrderType() == OP_BUY) {
