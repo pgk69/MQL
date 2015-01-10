@@ -49,7 +49,7 @@ extern int DebugLevel           = 1;
 //          protokolliert
 
 //--- Global variables
-bool newTP;
+bool newTPset;
 
 
 //+------------------------------------------------------------------+
@@ -160,80 +160,87 @@ double calcPips(double Grenze, double Prozent, double Pips) {
 
 
 //+------------------------------------------------------------------+
+//| ggf. Normalize and Round                                         |
+//+------------------------------------------------------------------+
+double NormRound(double Value) {
+  int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
+  
+  Value = OrderTradeTickSize * round(Value/OrderTradeTickSize);
+  Value = NormalizeDouble(Value, OrderDigits);
+
+  return(Value);
+}
+
+
+//+------------------------------------------------------------------+
 //| TP bestimmen                                                     |
 //+------------------------------------------------------------------+
 double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
-  int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
-  double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
   MqlTick tick;
+  double newTP;
+  double newTPTrail;
 
-  newTP = false;
+  newTPset = false;
   if (SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      double OrderOpenPriceTPPips = NormalizeDouble(OrderTradeTickSize*round((OrderOpenPrice()+TPPips)/OrderTradeTickSize), OrderDigits);
-      double AskTPTrailPips       = NormalizeDouble(OrderTradeTickSize*round((tick.ask+Anpassung*TPTrailPips)/OrderTradeTickSize), OrderDigits);
-      TP = fmax(fmax(TP, OrderOpenPriceTPPips), AskTPTrailPips);
-    } else {
-      double OrderOpenPriceTPPips = NormalizeDouble(OrderTradeTickSize*round((OrderOpenPrice()-TPPips)/OrderTradeTickSize), OrderDigits);
-      double BidTPTrailPips       = NormalizeDouble(OrderTradeTickSize*round((tick.bid-Anpassung*TPTrailPips)/OrderTradeTickSize), OrderDigits);
-      TP = fmin(fmax(TP, OrderOpenPriceTPPips), BidTPTrailPips);
-    }
-
-    if (TP != OrderTakeProfit()) {
-      newTP = true;
-      if (DebugLevel > 0) {
-        string typ;
-        if (OrderType() == OP_BUY) {
-          typ = "long";
-        } else {
-          typ = "short";
-        }
-        Print(OrderSymbol()," TakeProfit neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt TakeProfit: ", OrderTakeProfit(), " neu TakeProfit: ", TP);
+      if (TP == 0) {                                                           // Initialisierung
+        newTP = NormRound(tick.bid + TPPips);
+      } else {
+        newTPTrail = NormRound(tick.bid + Anpassung*TPTrailPips);
+        newTP      = fmax(TP, newTPTrail);
       }
+    } else {
+      if (TP == 0) {                                                           // Initialisierung
+        newTP = NormRound(tick.ask - TPPips);
+      } else {
+        newTPTrail = NormRound(tick.ask - Anpassung*TPTrailPips);
+        newTP      = fmin(TP, newTPTrail);
+      }
+    }
+    if (newTP != TP) {
+      newTPset = true;
+      if (DebugLevel > 0) Print(OrderSymbol()," neuer TakeProfit ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", TP, " neu: ", newTP);
+      TP       = newTP;
     }
   }
 
   return(TP);
 }
 
+// Wenn ich Long  kaufen    kriege ich den ask Kurs
+// Wenn ich Long  verkaufen kriege ich den bid Kurs
+// Wenn ich Short kaufen    kriege ich den bid Kurs
+// Wenn ich Short verkaufen kriege ich den ask Kurs
 
 //+------------------------------------------------------------------+
 //| SL bestimmen                                                     |
 //+------------------------------------------------------------------+
 double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
-  int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
-  double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
   MqlTick tick;
+  double newSL;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      if (SL == 0) {                                                        // Initialisierung
-        SL = NormalizeDouble(OrderTradeTickSize*round((tick.bid-SLPips)/OrderTradeTickSize), OrderDigits);
+      if (SL == 0) {                                                           // Initialisierung
+        newSL = NormRound(tick.bid - SLPips);
       } else {
-        if (newTP || (TP-tick.bid < TPTrailPips)) {                         // Trailing SL falls TP erhoeht wird; SL wird nie verringert
-          SL = fmax(SL, NormalizeDouble(OrderTradeTickSize*round((tick.bid-SLTrailPips)/OrderTradeTickSize), OrderDigits));
+        if (newTPset || (TP < tick.bid + Anpassung*TPTrailPips)) {             // Trailing SL falls TP erhoeht wird; SL wird nie verringert
+          newSL = fmax(SL, NormRound(tick.bid - SLTrailPips));
         }
       }
     } else {
-      if (SL == 0) {                                                        // Initialisierung
-        SL = NormalizeDouble(OrderTradeTickSize*round((tick.bid+SLPips)/OrderTradeTickSize), OrderDigits);
+      if (SL == 0) {                                                           // Initialisierung
+        newSL = NormRound(tick.ask + SLPips);
       } else {
-        if (newTP || (tick.ask-TP < TPTrailPips)) {                         // Trailing SL falls TP verringert wird; SL wird nie erhoeht
-          SL = fmin(SL, NormalizeDouble(OrderTradeTickSize*round((tick.ask+SLTrailPips)/OrderTradeTickSize), OrderDigits));
+        if (newTPset || (TP > tick.ask - Anpassung*TPTrailPips)) {             // Trailing SL falls TP verringert wird; SL wird nie erhoeht
+          newSL = fmin(SL, NormRound(tick.ask + SLTrailPips));
         }
       }
     }
-
-    if (SL != OrderStopLoss()) {
-      if (DebugLevel > 0) {
-        string typ;
-        if (OrderType() == OP_BUY) {
-          typ = "long";
-        } else {
-          typ = "short";
-        }
-        Print(OrderSymbol()," StopLoss neu festgesetzt fuer ", typ, " Order: Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt StopLoss: ", OrderStopLoss(), " neu StopLoss: ", SL);
-      }
+    if (newSL != SL) {
+      if (DebugLevel > 0) Print(OrderSymbol()," neuer StopLoss ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", SL, " neu: ", newSL);
+      SL = newSL;
     }
   }
 
