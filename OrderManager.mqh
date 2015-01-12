@@ -190,6 +190,11 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
         newTPTrail = NormRound(tick.bid + Anpassung*TPTrailPips);
         newTP      = fmax(TP, newTPTrail);
       }
+      if (newTP > TP) {
+        newTPset = true;
+        if (DebugLevel > 0) Print(OrderSymbol()," neuer TakeProfit ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", TP, " neu: ", newTP);
+        TP       = newTP;
+      }
     } else {
       if (TP == 0) {                                                           // Initialisierung
         newTP = NormRound(tick.ask - TPPips);
@@ -197,11 +202,11 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
         newTPTrail = NormRound(tick.ask - Anpassung*TPTrailPips);
         newTP      = fmin(TP, newTPTrail);
       }
-    }
-    if (newTP != TP) {
-      newTPset = true;
-      if (DebugLevel > 0) Print(OrderSymbol()," neuer TakeProfit ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", TP, " neu: ", newTP);
-      TP       = newTP;
+      if (newTP < TP) {
+        newTPset = true;
+        if (DebugLevel > 0) Print(OrderSymbol()," neuer TakeProfit ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", TP, " neu: ", newTP);
+        TP       = newTP;
+      }
     }
   }
 
@@ -229,6 +234,11 @@ double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips
           newSL = fmax(SL, NormRound(tick.bid - SLTrailPips));
         }
       }
+      if (newSL > SL) {
+        if (DebugLevel > 0) Print(OrderSymbol()," neuer StopLoss ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", SL, " neu: ", newSL);
+        SL = newSL;
+        newTPset = false;
+      }
     } else {
       if (SL == 0) {                                                           // Initialisierung
         newSL = NormRound(tick.ask + SLPips);
@@ -237,10 +247,11 @@ double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips
           newSL = fmin(SL, NormRound(tick.ask + SLTrailPips));
         }
       }
-    }
-    if (newSL != SL) {
-      if (DebugLevel > 0) Print(OrderSymbol()," neuer StopLoss ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", SL, " neu: ", newSL);
-      SL = newSL;
+      if (newSL < SL) {
+        if (DebugLevel > 0) Print(OrderSymbol()," neuer StopLoss ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", SL, " neu: ", newSL);
+        SL = newSL;
+        newTPset = false;
+      }
     }
   }
 
