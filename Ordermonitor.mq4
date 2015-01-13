@@ -22,22 +22,21 @@ extern int MagicNumber = 0;
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
-int init() {
+int OnInit() {
   OrderManager_Init();
-  return(0);
+  return(INIT_SUCCEEDED);
 }
 
 //+------------------------------------------------------------------+
 //| expert deinitialization function                                 |
 //+------------------------------------------------------------------+
-int deinit() {
-  return(0);
+void OnDeinit(const int reason) {
 }
 
 //+------------------------------------------------------------------+
 //| expert start function                                            |
 //+------------------------------------------------------------------+
-int start() {
+void OnTick() {
   manageOrders(MagicNumber);
-  return(0);
+>>>>>>> Stashed changes
 }

@@ -22,25 +22,25 @@ enum Abs_Proz
   };
 
 // initialer Abstand des TP/SL zum Einstiegskurs
-extern double TP_Pips           = 300;
+extern double TP_Pips           = 30;
 extern double TP_Percent        = 0.3;
 input Abs_Proz TP_Grenze        = Pips; 
-extern double SL_Pips           = 300;
+extern double SL_Pips           = 30;
 extern double SL_Percent        = 0.3;
 input Abs_Proz SL_Grenze        = Pips;
 
 // Nachziehen des TP
 // Auf 0 setzen damit kein Nachziehen des TP erfolgt
-extern double TP_Trail_Pips     = 100;
+extern double TP_Trail_Pips     = 10;
 extern double TP_Trail_Percent  = 0.10;
 input Abs_Proz TP_Trail_Grenze  = Pips;
-extern double SL_Trail_Pips     = 50;
+extern double SL_Trail_Pips     = 5;
 extern double SL_Trail_Percent  = 0.05;
 input Abs_Proz SL_Trail_Grenze  = Pips;
 
 extern int MaxRetry             = 10;
 
-extern int DebugLevel           = 1;
+extern int DebugLevel           = 2;
 // Level 0: Keine Debugausgaben
 // Level 1: Nur Orderaenderungen werden protokolliert
 // Level 2: Alle Aenderungen werden protokolliert
@@ -51,13 +51,28 @@ extern int DebugLevel           = 1;
 //--- Global variables
 bool newTPset;
 
-
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
-int OrderManager_Init() {
+void OrderManager_Init() {
   Print("OrderManager Version: ", VERSION);
-  return(0);
+  //double A = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_CONTRACT_SIZE);
+  //double A1 = log10(A);
+  //double A2 = A1+0.5;
+  //double A3 = round(A2);
+  //double B = 2-round(log10(A)+0.5);
+  //double C = pow(10, B);
+  //double PipFaktor = pow(10, 2-round(log10(SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_CONTRACT_SIZE))+0.5));
+  //double D = PipFaktor*30;
+  //Print("Trade Contract Size=",SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_CONTRACT_SIZE)); 
+  //Print("SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_CONTRACT_SIZE)  A:", A); 
+  //Print("log10(A):", A1); 
+  //Print("log10(A)+0.5:", A2); 
+  //Print("round(log10(A)+0.5):", A3); 
+  //Print("round(log10(A)+0.5) - 2  B:", B); 
+  //Print("pow(10, B)  C:", C); 
+  //Print("PipFaktor (pow(10, 2-round(log10(SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_CONTRACT_SIZE))+0.5))): ", PipFaktor); 
+  //Print("PipFaktor*30: ", D);
 }
 
 //+------------------------------------------------------------------+
@@ -69,7 +84,7 @@ int manageOrders(int myMagicNumber) {
   double Anpassung, TPPips, SLPips, TPTrailPips, TP, SL, SLTrailPips;
 
   // Bearbeitung aller offenen Trades
-  if (DebugLevel > 2) Print(OrderSymbol()," Orderbuch auslesen (Total alle Symbole: ",OrdersTotal(),")");
+  if (DebugLevel > 3) Print(OrderSymbol()," Orderbuch auslesen (Total alle Symbole: ",OrdersTotal(),")");
   for (int i=0; i<OrdersTotal(); i++) {
     // Nur gueltige Trades verarbeiten
     if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES) == false)    continue;
@@ -151,7 +166,7 @@ double calcPips(double Grenze, double Prozent, double Pips) {
       newPips = Prozent/100 * tick.bid;
     }
   } else {
-    newPips = SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Pips;
+    newPips = 10*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Pips;
   }
   // Print("Old: " + Pips + "  Neu: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE));
  
@@ -165,7 +180,8 @@ double calcPips(double Grenze, double Prozent, double Pips) {
 double NormRound(double Value) {
   int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
   double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
-  
+
+  if (DebugLevel > 2) Print("Normalizing ", Value, " OrderTradeTickSize * round(Value/OrderTradeTickSize): ", OrderTradeTickSize * round(Value/OrderTradeTickSize), "  NormalizeDouble(Value, OrderDigits): ", NormalizeDouble(Value, OrderDigits));
   Value = OrderTradeTickSize * round(Value/OrderTradeTickSize);
   Value = NormalizeDouble(Value, OrderDigits);
 
@@ -176,41 +192,43 @@ double NormRound(double Value) {
 //+------------------------------------------------------------------+
 //| TP bestimmen                                                     |
 //+------------------------------------------------------------------+
-double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
+double bestimmeTP(double Anpassung, double myTP, double TPPips, double TPTrailPips, double mySL, double SLPips, double SLTrailPips) {
   MqlTick tick;
-  double newTP;
+  double newTP = myTP;
   double newTPTrail;
 
   newTPset = false;
   if (SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      if (TP == 0) {                                                           // Initialisierung
+      if (myTP == 0) {                                                         // Initialisierung
         newTP = NormRound(tick.bid + TPPips);
       } else {
         newTPTrail = NormRound(tick.bid + Anpassung*TPTrailPips);
-        newTP      = fmax(TP, newTPTrail);
-      }
-      if (newTP > TP) {
-        newTPset = true;
-        if (DebugLevel > 0) Print(OrderSymbol()," neuer TakeProfit ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", TP, " neu: ", newTP);
-        TP       = newTP;
+        newTP      = fmax(myTP, newTPTrail);
       }
     } else {
-      if (TP == 0) {                                                           // Initialisierung
+      if (myTP == 0) {                                                         // Initialisierung
         newTP = NormRound(tick.ask - TPPips);
       } else {
         newTPTrail = NormRound(tick.ask - Anpassung*TPTrailPips);
-        newTP      = fmin(TP, newTPTrail);
+        newTP      = fmin(myTP, newTPTrail);
       }
-      if (newTP < TP) {
-        newTPset = true;
-        if (DebugLevel > 0) Print(OrderSymbol()," neuer TakeProfit ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", TP, " neu: ", newTP);
-        TP       = newTP;
+    }
+    
+    if (newTP != myTP) {
+      if (DebugLevel > 0) {
+        if (myTP == 0) {
+          Print(OrderSymbol()," initialer TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newTP);
+        } else {
+          Print(OrderSymbol()," neuer TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", myTP, " neu: ", newTP);
+        }
       }
+      newTPset = true;
+      myTP = newTP;
     }
   }
 
-  return(TP);
+  return(myTP);
 }
 
 // Wenn ich Long  kaufen    kriege ich den ask Kurs
@@ -221,39 +239,40 @@ double bestimmeTP(double Anpassung, double TP, double TPPips, double TPTrailPips
 //+------------------------------------------------------------------+
 //| SL bestimmen                                                     |
 //+------------------------------------------------------------------+
-double bestimmeSL(double Anpassung, double TP, double TPPips, double TPTrailPips, double SL, double SLPips, double SLTrailPips) {
+double bestimmeSL(double Anpassung, double myTP, double TPPips, double TPTrailPips, double mySL, double SLPips, double SLTrailPips) {
   MqlTick tick;
-  double newSL;
+  double newSL = mySL;
 
   if (SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      if (SL == 0) {                                                           // Initialisierung
+      if (mySL == 0) {                                                         // Initialisierung
         newSL = NormRound(tick.bid - SLPips);
       } else {
-        if (newTPset || (TP < tick.bid + Anpassung*TPTrailPips)) {             // Trailing SL falls TP erhoeht wird; SL wird nie verringert
-          newSL = fmax(SL, NormRound(tick.bid - SLTrailPips));
+        if (newTPset || (myTP < tick.bid + Anpassung*TPTrailPips)) {           // Trailing SL falls TP erhoeht wird; SL wird nie verringert
+          newSL = fmax(mySL, NormRound(tick.bid - SLTrailPips));
         }
-      }
-      if (newSL > SL) {
-        if (DebugLevel > 0) Print(OrderSymbol()," neuer StopLoss ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", SL, " neu: ", newSL);
-        SL = newSL;
-        newTPset = false;
       }
     } else {
-      if (SL == 0) {                                                           // Initialisierung
+      if (mySL == 0) {                                                         // Initialisierung
         newSL = NormRound(tick.ask + SLPips);
       } else {
-        if (newTPset || (TP > tick.ask - Anpassung*TPTrailPips)) {             // Trailing SL falls TP verringert wird; SL wird nie erhoeht
-          newSL = fmin(SL, NormRound(tick.ask + SLTrailPips));
+        if (newTPset || (myTP > tick.ask - Anpassung*TPTrailPips)) {           // Trailing SL falls TP verringert wird; SL wird nie erhoeht
+          newSL = fmin(mySL, NormRound(tick.ask + SLTrailPips));
         }
       }
-      if (newSL < SL) {
-        if (DebugLevel > 0) Print(OrderSymbol()," neuer StopLoss ", OrderType(), " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", SL, " neu: ", newSL);
-        SL = newSL;
-        newTPset = false;
+    }
+    if (newSL != mySL) {
+      if (DebugLevel > 0) {
+        if (myTP == 0) {
+          Print(OrderSymbol()," initialer StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newSL);
+        } else {
+          Print(OrderSymbol()," neuer StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", mySL, " neu: ", newSL);
+        }
       }
+      mySL = newSL;
     }
   }
 
-  return(SL);
+  return(mySL);
 }
+>>>>>>> Stashed changes
