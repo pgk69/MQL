@@ -44,6 +44,6 @@
 
 # Fully qualified exceptions allways at the end: The last one wins!
 # <Windows files> binary  # Avoids CRLF to LF conversion
-*.mq4 binary
-*.mqh binary
+#*.mq4 binary
+#*.mqh binary
 *.ex4 binary
