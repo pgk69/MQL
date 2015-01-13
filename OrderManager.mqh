@@ -275,4 +275,3 @@ double bestimmeSL(double Anpassung, double myTP, double TPPips, double TPTrailPi
 
   return(mySL);
 }
->>>>>>> Stashed changes

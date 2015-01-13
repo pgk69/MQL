@@ -38,5 +38,4 @@ void OnDeinit(const int reason) {
 //+------------------------------------------------------------------+
 void OnTick() {
   manageOrders(MagicNumber);
->>>>>>> Stashed changes
 }
