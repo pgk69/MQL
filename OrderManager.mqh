@@ -223,7 +223,7 @@ double bestimmeTP(double Anpassung, double myTP, double TPPips, double TPTrailPi
           Print(OrderSymbol()," neuer TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", myTP, " neu: ", newTP);
         }
       }
-      newTPset = true;
+      if (myTP != 0) newTPset = true;
       myTP = newTP;
     }
   }

@@ -102,38 +102,14 @@ int OnInit() {
 
   // Subscribtions
   // NOTE: to subscribe to multiple channels call zmq_setsockopt multiple times.
+  string command[6] = {"get_parameter|", "set_parameter|", "set|", "reset|", "unset|", "draw|"};
   string command_string;
   string account_string = IntegerToString(AccountNumber());
-
-  // get_parameter
-  command_string = "get_parameter|" + account_string;
-  zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
-  Print("Subscribing on channel: " + command_string); // Output command string.
-
-  // set_parameter
-  command_string = "set_parameter|" + account_string;
-  zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
-  Print("Subscribing on channel: " + command_string); // Output command string.
-
-  // set
-  command_string = "set|" + account_string;
-  zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
-  Print("Subscribing on channel: " + command_string); // Output command string.
-
-  // reset
-  command_string = "reset|" + account_string;
-  zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
-  Print("Subscribing on channel: " + command_string); // Output command string.
-
-  // unset
-  command_string = "unset|" + account_string;
-  zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
-  Print("Subscribing on channel: " + command_string); // Output command string.
-
-  // draw
-  command_string = "draw|" + account_string;
-  zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
-  Print("Subscribing on channel: " + command_string); // Output command string.
+  for (int i=0; i<=5; i++) {
+    command_string = command[i] + account_string;
+    zmq_setsockopt(listener, ZMQ_SUBSCRIBE, command_string);
+    Print("Subscribing on channel: " + command_string); // Output command string.
+  }
 
   //
   // Read all open Orders
