@@ -5,7 +5,7 @@
 //| FOR ZEROMQ USE NOTES PLEASE REFERENCE:                           |
 //|                           http://api.zeromq.org/2-1:_start       |
 //+------------------------------------------------------------------+
-// Solange nicht connected regelmäßig versuchen und Bridge UP senden
+// Solange nicht connected regelmaessig versuchen und Bridge UP senden
 #property copyright "Copyright 2014 Peter Kempf"
 #property link      "http://www.mql4zmq.org"
 
@@ -79,7 +79,7 @@ info infos = {true, false, false, false, false, true};
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
-int init() {
+int OnInit() {
 //----
 
   settings.magic_number = IntegerToString(MagicNumber);
@@ -90,7 +90,7 @@ int init() {
   zmq_version(major,minor,patch);
   Print("Using zeromq version " + IntegerToString(major[0]) + "." + IntegerToString(minor[0]) + "." + IntegerToString(patch[0]));
 
-  Print(ping("Hello World"));
+  // Print(ping("Hello World"));
 
   //
   // ZMQ Initialisation
@@ -140,14 +140,14 @@ int init() {
   //
 
 //----
-  return(0);
+  return(INIT_SUCCEEDED);
 }
 
 
 //+------------------------------------------------------------------+
 //| expert deinitialization function                                 |
 //+------------------------------------------------------------------+
-int deinit() {
+void OnDeinit(const int reason) {
 //----
 
   // Delete all objects from the chart.
@@ -168,14 +168,13 @@ int deinit() {
   zmq_term(ctx);
 
 //----
-  return(0);
 }
 
 
 //+------------------------------------------------------------------+
 //| expert start function                                            |
 //+------------------------------------------------------------------+
-int start() {
+void OnTick() {
 
 //----
 
@@ -238,7 +237,7 @@ int start() {
 
         if (update_ticket == false) {
           Print("OrderSend/OrderSelect failed with error #", GetLastError());
-          return(0);
+          return;
         } else {
           if (settings.open_price == "") {
             Print("Trade: " + settings.ticket + " updated stop loss to: " + settings.stop_loss + " and take profit to: " + settings.take_profit);
@@ -271,7 +270,7 @@ int start() {
         }
         if (close_ticket == false) {
           Print("OrderSend/OrderSelect failed with error #",GetLastError());
-          return(0);
+          return;
         } else {
           Print("Closed trade: " + settings.ticket);
           response = "response|" + IntegerToString(AccountNumber()) + " {\"account\":  \"" + settings.account +
@@ -340,7 +339,7 @@ int start() {
         }
         if (ticket < 0) {
           Print("OrderSend failed with error #",GetLastError());
-          return(0);
+          return;
         } else {
           response = "response|" + IntegerToString(AccountNumber()) + " {\"account\":  \"" + settings.account +
                                                                     "\", \"uuid\": \""     + settings.uuid +
@@ -455,7 +454,7 @@ int start() {
       }
     }
 
-    return(0);
+    return;
   }
 
 
@@ -520,7 +519,7 @@ int start() {
     }
   }
 //----
-  return(0);
+  return;
 }
 
 //+------------------------------------------------------------------+
