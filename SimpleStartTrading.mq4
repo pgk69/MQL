@@ -8,18 +8,20 @@
 #property version   "1.00"
 #property strict
 
-int TickCount = 0;
-
-datetime LastProcessedSignal = 0;
-
 // maximum acceptable distance to original signal
-input double MaxSlippage = 5;
+input double MaxGoodSlippage = 5;
+input double MaxBadSlippage = 5;
 input int MaxSignalAge = 180;
+input int SignalExpiration = 600;
 input double DefaultSL = 30;
 input double DefaultTP = 30;
 input double OrderSize = 0.1;
 input int MagicNumber = 9999;
 input string url="http://fx.bartosch.name/start-signal.csv";
+
+int TickCount = 0;
+datetime LastProcessedSignal = 0;
+uchar sep = ';';
 
 
 //+------------------------------------------------------------------+
@@ -32,6 +34,8 @@ int OnInit()
 //---
    return(INIT_SUCCEEDED);
   }
+  
+  
 //+------------------------------------------------------------------+
 //| Expert deinitialization function                                 |
 //+------------------------------------------------------------------+
@@ -40,14 +44,15 @@ void OnDeinit(const int reason)
 //---
    
   }
+  
+  
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
-  uchar sep = ';';
   
   if (TickCount++ % 20 == 0) {
-   Alert("20. Tick");
+   // Alert("20. Tick");
    string cookie=NULL;
    string headers;
    char post[];
@@ -64,7 +69,7 @@ void OnTick() {
 //--- check errors
    if(res==-1)
      {
-      Alert("Error code =",GetLastError());
+      // Alert("Error code =",GetLastError());
      }
    else
      {
@@ -105,14 +110,20 @@ void OnTick() {
       // process the signal
       LastProcessedSignal = signaltimestamp_epoch;
       
-      double SignalPrice = StrToDouble(signal[1]);
-      double SignalSL    = StrToDouble(signal[2]);
-      double SignalTP    = StrToDouble(signal[3]);
+      double SignalPrice    = StrToDouble(signal[1]);
+      double SignalSL       = StrToDouble(signal[2]);
+      double SignalTP       = StrToDouble(signal[3]);
+      double Price;
+      int ExecuteType;
+      datetime Expiration;
       if (StringCompare("DAX Long", signal[0]) == 0) {
-        double Price = Ask;
-        if ( (Price + MaxSlippage < SignalPrice) || (Price - MaxSlippage > SignalPrice) ) {
+        Price = Ask;
+        ExecuteType = OP_BUY;
+        Expiration = 0;
+        if ((MaxGoodSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxBadSlippage)) {
           Print("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice);
-          return;
+          ExecuteType = OP_BUYLIMIT;
+          Expiration = TimeLocal() + SignalExpiration;
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
@@ -122,13 +133,16 @@ void OnTick() {
         if (SignalTP > Price + (DefaultTP + 10))
           SignalTP = Price + DefaultTP;
           
-          OrderSend(Symbol(), OP_BUY, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, 0, clrNONE);
+        OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
       }
       if (StringCompare("DAX Short", signal[0]) == 0) {
-        double Price = Bid;
-        if ( (Price + MaxSlippage < SignalPrice) || (Price - MaxSlippage > SignalPrice) ) {
+        Price = Bid;
+        ExecuteType = OP_SELL;
+        Expiration = 0;
+        if ((MaxBadSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxGoodSlippage)) {
           Print("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice);
-          return;
+          ExecuteType = OP_SELLLIMIT;
+          Expiration = TimeLocal() + SignalExpiration;
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
@@ -138,10 +152,9 @@ void OnTick() {
         if (SignalTP < Price - (DefaultTP + 10))
           SignalTP = Price - DefaultTP;
           
-          OrderSend(Symbol(), OP_SELL, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, 0, clrNONE);
+        OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
       }
-  }
-   
+    }
   }   
 }
 //+------------------------------------------------------------------+
