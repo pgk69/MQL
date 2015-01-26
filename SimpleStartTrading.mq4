@@ -50,9 +50,11 @@ void OnDeinit(const int reason)
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
+  if (! IsTradeAllowed()) {
+    return;
+  }
   
-  if (TickCount++ % 20 == 0) {
-   // Alert("20. Tick");
+  if (TickCount++ % 10 == 0) {
    string cookie=NULL;
    string headers;
    char post[];
