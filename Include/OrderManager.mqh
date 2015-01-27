@@ -38,6 +38,8 @@ extern double SL_Trail_Pips     = 5;
 extern double SL_Trail_Percent  = 0.05;
 input Abs_Proz SL_Trail_Grenze  = Pips;
 
+extern int BarCount             = 3;
+
 extern int MaxRetry             = 10;
 
 extern int DebugLevel           = 2;
@@ -251,6 +253,12 @@ double bestimmeSL(double Anpassung, double myTP, double TPPips, double TPTrailPi
         if (newTPset || (myTP < tick.bid + Anpassung*TPTrailPips)) {           // Trailing SL falls TP erhoeht wird; SL wird nie verringert
           newSL = fmax(mySL, NormRound(tick.bid - SLTrailPips));
         }
+        double MinMax_N_Bar = 1000000000;
+        if (BarCount > 0) {
+          int i = BarCount;
+          while (i>0) MinMax_N_Bar = fmin(MinMax_N_Bar, iLow(OrderSymbol(), timeframe, i--));
+          newSL = fmax(mySL, MinMax_N_Bar);
+        }
       }
     } else {
       if (mySL == 0) {                                                         // Initialisierung
@@ -259,11 +267,17 @@ double bestimmeSL(double Anpassung, double myTP, double TPPips, double TPTrailPi
         if (newTPset || (myTP > tick.ask - Anpassung*TPTrailPips)) {           // Trailing SL falls TP verringert wird; SL wird nie erhoeht
           newSL = fmin(mySL, NormRound(tick.ask + SLTrailPips));
         }
+        double MinMax_N_Bar = -1000000000;
+        if (BarCount > 0) {
+          int i = BarCount;
+          while (i>0) MinMax_N_Bar = fmax(MinMax_N_Bar, iHigh(OrderSymbol(), timeframe, i--));
+          newSL = fmin(mySL, MinMax_N_Bar);
+        }
       }
     }
     if (newSL != mySL) {
       if (DebugLevel > 0) {
-        if (myTP == 0) {
+        if (mySL == 0) {
           Print(OrderSymbol()," initialer StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newSL);
         } else {
           Print(OrderSymbol()," neuer StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Kaufpreis: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " alt: ", mySL, " neu: ", newSL);
