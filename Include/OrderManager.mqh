@@ -38,6 +38,8 @@ extern double SL_Trail_Pips     = 5;
 extern double SL_Trail_Percent  = 0.05;
 input Abs_Proz SL_Trail_Grenze  = Pips;
 
+// if a Value greater then 0 is specified N-Bar SL is used
+// Otherwise Trailing SL is used
 extern int BarCount             = 3;
 
 extern int MaxRetry             = 10;
