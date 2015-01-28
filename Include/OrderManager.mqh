@@ -41,6 +41,7 @@ input Abs_Proz SL_Trail_Grenze  = Pips;
 // if a Value greater then 0 is specified N-Bar SL is used
 // Otherwise Trailing SL is used
 extern int BarCount             = 3;
+extern int timeframe            = PERIODE_M1;
 
 extern int MaxRetry             = 10;
 
@@ -54,6 +55,7 @@ extern int DebugLevel           = 2;
 
 //--- Global variables
 bool newTPset;
+bool SLactivated = false;
 
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
@@ -254,12 +256,15 @@ double bestimmeSL(double Anpassung, double myTP, double TPPips, double TPTrailPi
       } else {
         if (newTPset || (myTP < tick.bid + Anpassung*TPTrailPips)) {           // Trailing SL falls TP erhoeht wird; SL wird nie verringert
           newSL = fmax(mySL, NormRound(tick.bid - SLTrailPips));
+          SLactivated = true;
         }
-        double MinMax_N_Bar = 1000000000;
-        if (BarCount > 0) {
-          int i = BarCount;
-          while (i>0) MinMax_N_Bar = fmin(MinMax_N_Bar, iLow(OrderSymbol(), timeframe, i--));
-          newSL = fmax(mySL, MinMax_N_Bar);
+        if (SLactivated) {
+          double MinMax_N_Bar = 1000000000;
+          if (BarCount > 0) {
+            int i = BarCount;
+            while (i>0) MinMax_N_Bar = fmin(MinMax_N_Bar, iLow(OrderSymbol(), timeframe, i--));
+            newSL = fmax(mySL, MinMax_N_Bar);
+          }
         }
       }
     } else {
@@ -268,12 +273,15 @@ double bestimmeSL(double Anpassung, double myTP, double TPPips, double TPTrailPi
       } else {
         if (newTPset || (myTP > tick.ask - Anpassung*TPTrailPips)) {           // Trailing SL falls TP verringert wird; SL wird nie erhoeht
           newSL = fmin(mySL, NormRound(tick.ask + SLTrailPips));
+          SLactivated = true;
         }
-        double MinMax_N_Bar = -1000000000;
-        if (BarCount > 0) {
-          int i = BarCount;
-          while (i>0) MinMax_N_Bar = fmax(MinMax_N_Bar, iHigh(OrderSymbol(), timeframe, i--));
-          newSL = fmin(mySL, MinMax_N_Bar);
+        if (SLactivated) {
+          double MinMax_N_Bar = -1000000000;
+          if (BarCount > 0) {
+            int i = BarCount;
+            while (i>0) MinMax_N_Bar = fmax(MinMax_N_Bar, iHigh(OrderSymbol(), timeframe, i--));
+            newSL = fmin(mySL, MinMax_N_Bar);
+          }
         }
       }
     }
