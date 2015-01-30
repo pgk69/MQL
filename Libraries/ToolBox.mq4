@@ -3,22 +3,11 @@
 //|                                      Copyright 2014, Peter Kempf |
 //|                                              http://www.mql4.com |
 //+------------------------------------------------------------------+
+#property library
 #property copyright "Copyright 2014, Peter Kempf"
 #property link      "http://www.mql4.com"
+#property version   "1.00"
 #property strict
-
-#define VERSION     "1.0"
-
-#include <stderror.mqh>
-#include <stdlib.mqh>
-
-//--- type definitons
-enum Abs_Proz 
-  {
-   Pips=0,     // Pips
-   Percent=1,  // Percent
-  };
-
 
 //--- input parameters
 extern int DebugLevel           = 2;
