@@ -41,7 +41,7 @@ input Abs_Proz SL_Trail_Grenze  = Pips;
 // if a Value greater then 0 is specified N-Bar SL is used
 // Otherwise Trailing SL is used
 extern int BarCount             = 3;
-extern int timeframe            = PERIODE_M1;
+extern int timeframe            = -1;
 
 extern int MaxRetry             = 10;
 

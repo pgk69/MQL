@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                                 OrderManager.mqh |
+//|                                               ExitStrategies.mqh |
 //|                                      Copyright 2014, Peter Kempf |
 //|                                              http://www.mql4.com |
 //+------------------------------------------------------------------+
@@ -14,16 +14,13 @@
 //--- input parameters
 // common
 
-extern int DebugLevel = 1;
-
 //--- Global variables
-bool newTPset;
 
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
 void ExitStrategies_Init() export {
-  Print("ExitStrategies Version: ", VERSION);
+  debug(1, StringConcatenate("ExitStrategies Version: ", VERSION));
 }
 
 
@@ -49,9 +46,7 @@ double initial_TP(double myTP, double TPPips, bool& initialTP) export {
       }
     
       if (newTP != myTP) {
-        if (DebugLevel > 1) {
-          Print(OrderSymbol()," initial TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newTP);
-        }
+        debug(2, StringConcatenate("initial TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newTP));
         initialTP = true;
       }
     }
@@ -82,9 +77,7 @@ double trailing_TP(double Correction, double myTP, double TPPips, double TPTrail
       }
     
       if (newTP != myTP) {
-        if (DebugLevel > 1) {
-          Print(OrderSymbol()," new trailing TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", myTP, " new: ", newTP);
-        }
+        debug(2, StringConcatenate("new trailing TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", myTP, " new: ", newTP));
         resetTP = true;
       }
     }
@@ -111,9 +104,7 @@ double initial_SL(double mySL, double SLPips, bool& initialSL) export {
         newSL = NormRound(tick.ask + SLPips);
       }
       if (newSL != mySL) {
-        if (DebugLevel > 1) {
-          Print(OrderSymbol()," initial StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newSL);
-        }
+        debug(2, StringConcatenate("initial StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newSL));
         initialSL = true;
       }
     }
@@ -144,9 +135,7 @@ double trailing_SL(double Correction, double mySL, double SLPips, double SLTrail
         }
       }
       if (newSL != mySL) {
-        if (DebugLevel > 1) {
-          Print(OrderSymbol()," new trailing StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", mySL, " new: ", newSL);
-        }
+        debug(2, StringConcatenate("new trailing StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", mySL, " new: ", newSL));
         resetSL = true;
       }
     }
@@ -159,7 +148,7 @@ double trailing_SL(double Correction, double mySL, double SLPips, double SLTrail
 //+------------------------------------------------------------------+
 //| determine N-Bar SL                                               |
 //+------------------------------------------------------------------+
-double N_Bar_SL(double mySL, double SLPips, bool& initialSL, bool& resetSL, int timeframe, int barCount) export {
+double N_Bar_SL(double mySL, double SLPips, bool& initialSL, bool& resetSL, int timeframe, int barCount, double timeframeFaktor) export {
   MqlTick tick;
   double newSL = initial_SL(mySL, SLPips, initialSL);
   
@@ -167,15 +156,15 @@ double N_Bar_SL(double mySL, double SLPips, bool& initialSL, bool& resetSL, int 
     // no timeframe is given, so we decide outselfs
     // based on how long the order is activ
     int barTime = round((TimeCurrent()-OrderOpenTime())/barCount);
-    if      (barTime <     300) timeframe = PERIOD_M1;
-    else if (barTime <     900) timeframe = PERIOD_M5;
-    else if (barTime <    1800) timeframe = PERIOD_M15;
-    else if (barTime <    3600) timeframe = PERIOD_M30;
-    else if (barTime <   14400) timeframe = PERIOD_H1;
-    else if (barTime <   86400) timeframe = PERIOD_H4;
-    else if (barTime <  604800) timeframe = PERIOD_D1;
-    else if (barTime < 2678400) timeframe = PERIOD_W1;
-    else                        timeframe = PERIOD_MN1;
+    if      (barTime <     300*timeframeFaktor) timeframe = PERIOD_M1;
+    else if (barTime <     900*timeframeFaktor) timeframe = PERIOD_M5;
+    else if (barTime <    1800*timeframeFaktor) timeframe = PERIOD_M15;
+    else if (barTime <    3600*timeframeFaktor) timeframe = PERIOD_M30;
+    else if (barTime <   14400*timeframeFaktor) timeframe = PERIOD_H1;
+    else if (barTime <   86400*timeframeFaktor) timeframe = PERIOD_H4;
+    else if (barTime <  604800*timeframeFaktor) timeframe = PERIOD_D1;
+    else if (barTime < 2678400*timeframeFaktor) timeframe = PERIOD_W1;
+    else                                        timeframe = PERIOD_MN1;
   }
 
   resetSL = false;
@@ -197,9 +186,7 @@ double N_Bar_SL(double mySL, double SLPips, bool& initialSL, bool& resetSL, int 
         // Print("fmin(mySL=", mySL, ", Max_N_Bar=", Max_N_Bar, ")=", newSL);
       }
       if (newSL != mySL) {
-        if (DebugLevel > 1) {
-          Print(OrderSymbol()," new N-Bar StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", mySL, " new: ", newSL);
-        }
+        debug(2, StringConcatenate("new N-Bar StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", mySL, " new: ", newSL));
         resetSL = true;
       }
     }

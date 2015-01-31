@@ -9,15 +9,15 @@
 #property strict
 
 // maximum acceptable distance to original signal
-input double MaxGoodSlippage = 5;
+input double MaxGoodSlippage = 100;
 input double MaxBadSlippage = 5;
 input int MaxSignalAge = 180;
-input int SignalExpiration = 600;
+input int SignalExpiration = 1800;
 input double DefaultSL = 30;
 input double DefaultTP = 30;
-input double OrderSize = 0.1;
+input double OrderSize = 0.01;
 input int MagicNumber = 9999;
-input string url="http://fx.bartosch.name/start-signal.csv";
+input string url="http://localhost/start-signal.csv";
 
 int TickCount = 0;
 datetime LastProcessedSignal = 0;
@@ -54,7 +54,7 @@ void OnTick() {
     return;
   }
   
-  if (TickCount++ % 10 == 0) {
+  if (TickCount++ % 5 == 0) {
    string cookie=NULL;
    string headers;
    char post[];

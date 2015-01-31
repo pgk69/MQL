@@ -18,6 +18,15 @@ enum Abs_Proz
 //               <> 0: Only trades with MagicNumber will be monitored
 extern int MagicNumber = 0;
 
+extern int Debug       = 2;
+// Level 0: Keine Debugausgaben
+// Level 1: Nur Orderaenderungen werden protokolliert
+// Level 2: Alle Aenderungen werden protokolliert
+// Level 3: Alle Programmschritte werden protokolliert
+// Level 4: Programmschritte und Datenstrukturen werden im Detail 
+//          protokolliert
+
+
 //- onlyCurrentSymbol: true:  Only the current Symbol will be monitored
 //                     false: every Symbol will be monitored
 extern bool onlyCurrentSymbol   = true;
@@ -43,12 +52,12 @@ extern double SL_Trail_Percent  = 0.05;
 extern Abs_Proz SL_Trail_Grenze = Pips;
 
 // determine N_Bar SL
-extern int BarCount              = 3;
+extern int BarCount             = 3;
+extern double TimeFrameFaktor   = 1.5;
 
 extern int MaxRetry             = 10;
 
 //--- Global variables
-extern int DebugLevel = 1;
 
 //--- Includes
 //#include <stderror.mqh>
@@ -63,6 +72,7 @@ extern int DebugLevel = 1;
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit() {
+  debugLevel(Debug);
   ExitStrategies_Init();
   return(INIT_SUCCEEDED);
 }
@@ -82,7 +92,7 @@ void OnTick() {
   bool initialTP, resetTP, initialSL, resetSL;
 
   // Bearbeitung aller offenen Trades
-  if (DebugLevel > 3) Print(OrderSymbol()," Read Orderbook (Total of all Symbols: ",OrdersTotal(),")");
+  debug(4, StringConcatenate("Read Orderbook (Total of all Symbols: ",OrdersTotal(),")"));
   for (int i=0; i<OrdersTotal(); i++) {
     // Only valid Tickets are processed
     if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES) == false)    continue;
@@ -106,7 +116,7 @@ void OnTick() {
   
     TP = trailing_TP(Correction, OrderTakeProfit(), TPPips, TPTrailPips, initialTP, resetTP);
     double tSL = trailing_SL(Correction, OrderStopLoss(),   SLPips, SLTrailPips, initialSL, resetSL, resetTP);
-    double bSL = N_Bar_SL(OrderStopLoss(), SLPips, initialSL, resetSL, -1, BarCount);
+    double bSL = N_Bar_SL(OrderStopLoss(), SLPips, initialSL, resetSL, -1, BarCount, TimeFrameFaktor);
     if (OrderType() == OP_BUY) {
       SL = fmin(tSL, bSL);
     } else {
@@ -116,13 +126,13 @@ void OnTick() {
     //if (initialTP || initialSL || resetTP || resetSL) {
     if (SL != OrderStopLoss() || TP != OrderTakeProfit()) {
       // Print(initialTP, " ", initialSL, " ", resetTP, " ", resetSL, " ", tSL, " ", bSL, " ", SL);
-      if (DebugLevel > 0) {
+      if (debugLevel() >= 1) {
         string message = "";
         if (TP != OrderTakeProfit()) message = StringConcatenate(message, " TP:",OrderTakeProfit(), "->", TP, " ");
         if (SL != OrderStopLoss())   message = StringConcatenate(message, " SL:",OrderStopLoss(), "->", SL, " (Trail:", tSL, " N-Bar:", bSL, "/", BarCount, ")");
         if (Correction != 1)         message = StringConcatenate(message, " Corrections determined as: ", Correction);
         Print(OrderSymbol(), message);
-        if (DebugLevel > 1) {
+        if (debugLevel() >= 2) {
           if (TP_Pips != TPPips)            Print(OrderSymbol(), " TP_Pips changed from ", TP_Pips, " to ", TPPips);
           if (TP_Trail_Pips != TPTrailPips) Print(OrderSymbol(), " TP_Trail_Pips changed from ", TP_Trail_Pips, " to ", TPTrailPips);
           if (SL_Pips != SLPips)            Print(OrderSymbol(), " SL_Pips changed from ", SL_Pips, " to ", SLPips);
@@ -139,27 +149,27 @@ void OnTick() {
         if (OrderType() == OP_BUY) {
           if (tick.bid < SL) {
             rc = OrderClose(Ticket, OrderLots(), tick.bid, 3, clrNONE);
-            executedOrder = StringConcatenate(OrderSymbol(), " OrderClose(", Ticket, ") rc: ");
+            executedOrder = StringConcatenate("OrderClose(", Ticket, ") rc: ", rc);
           } else {
             rc = OrderModify(Ticket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = StringConcatenate(OrderSymbol(), " OrderModify(", Ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ");
+            executedOrder = StringConcatenate("OrderModify(", Ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
           }
         }
         if (OrderType() == OP_SELL) {
           if (tick.ask > SL) {
             rc = OrderClose(Ticket, OrderLots(), tick.ask, 3, clrNONE);
-            executedOrder = StringConcatenate(OrderSymbol(), " OrderClose(", Ticket, ") rc: ");
+            executedOrder = StringConcatenate("OrderClose(", Ticket, ") rc: ", rc);
           } else {
             rc = OrderModify(Ticket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = StringConcatenate(OrderSymbol(), " OrderModify(", Ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ");
+            executedOrder = StringConcatenate("OrderModify(", Ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
           }
         }
         if (!rc) {
           rc = GetLastError();
-          if (DebugLevel > 0) Print(executedOrder, rc);
+          debug(1, StringConcatenate(executedOrder, " ", rc));
           Print(IntegerToString(rc) + ": " + ErrorDescription(rc));
         } else {
-          if (DebugLevel > 1) Print(executedOrder, rc);
+          debug(2, executedOrder);
         }
         Retry++;
       }

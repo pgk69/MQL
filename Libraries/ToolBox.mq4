@@ -19,7 +19,6 @@ extern int DebugLevel           = 2;
 //          protokolliert
 
 //--- Global variables
-bool newTPset;
 
 //+------------------------------------------------------------------+
 //| My function                                                      |
@@ -29,6 +28,28 @@ bool newTPset;
 //    return(value+value2);
 //   }
 //+------------------------------------------------------------------+
+
+
+//+------------------------------------------------------------------+
+//| debug funktion                                                   |
+//+------------------------------------------------------------------+
+void debug(int level, string message) export {
+  if (DebugLevel >= level) {
+    Print(StringConcatenate(OrderSymbol(), " ", message));
+  }
+}
+
+
+//+------------------------------------------------------------------+
+//| debugLevel funktion                                              |
+//+------------------------------------------------------------------+
+int debugLevel(int level=-1) export {
+  if (level >= 0) {
+    DebugLevel = level;
+  }
+  return(DebugLevel);
+}
+
 
 //+------------------------------------------------------------------+
 //| Calculate factor                                                 |

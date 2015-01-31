@@ -31,7 +31,7 @@
   double initial_SL(double mySL, double SLPips, bool& initialSL);
   double trailing_TP(double Correction, double myTP, double TPPips, double TPTrailPips, bool& initialTP, bool& resetTP);
   double trailing_SL(double Correction, double mySL, double SLPips, double SLTrailPips, bool& initialSL, bool& resetSL, bool resetTP);
-  double N_Bar_SL(double mySL, double SLPips, bool& initialSL, bool& resetSL, int timeframe, int barCount);
+  double N_Bar_SL(double mySL, double SLPips, bool& initialSL, bool& resetSL, int timeframe, int barCount, double timeframeFaktor);
 #import
 
 #endif

@@ -27,6 +27,8 @@
 #define __ToolBox_H__
 
 #import "ToolBox.ex4"
+  int debugLevel(int level=-1);
+  void debug(int level, string message);
   double indFaktor();
   double calcPips(double Boundary, double Percent, double Pips);
   double NormRound(double Value);
