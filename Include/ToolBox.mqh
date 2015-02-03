@@ -32,6 +32,8 @@
   double indFaktor();
   double calcPips(double Boundary, double Percent, double Pips);
   double NormRound(double Value);
+  int PeriodToIndex(int period);
+  int IndexToPeriod(int index);
 #import
 
 #endif

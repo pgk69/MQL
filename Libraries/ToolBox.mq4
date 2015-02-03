@@ -98,3 +98,76 @@ double NormRound(double Value) export {
 
   return(Value);
 }
+
+
+// returns the index for the specified period
+int PeriodToIndex(int period) export {
+   switch (period) {
+      case PERIOD_M1:
+         return 0;
+         break;
+      case PERIOD_M5:
+         return 1;
+         break;
+      case PERIOD_M15:
+         return 2;
+         break;
+      case PERIOD_M30:
+         return 3;
+         break;
+      case PERIOD_H1:
+         return 4;
+         break;
+      case PERIOD_H4:
+         return 5;
+         break;
+      case PERIOD_D1:
+         return 6;
+         break;
+      case PERIOD_W1:
+         return 7;
+         break;
+      case PERIOD_MN1:
+         return 8;
+         break;
+      default:
+         return -1;
+         break;
+   }
+}
+
+// returns the period for the specified index
+int IndexToPeriod(int index) export {
+   switch (index) {
+      case 0:
+         return PERIOD_M1;
+         break;
+      case 1:
+         return PERIOD_M5;
+         break;
+      case 2:
+         return PERIOD_M15;
+         break;
+      case 3:
+         return PERIOD_M30;
+         break;
+      case 4:
+         return PERIOD_H1;
+         break;
+      case 5:
+         return PERIOD_H4;
+         break;
+      case 6:
+         return PERIOD_D1;
+         break;
+      case 7:
+         return PERIOD_W1;
+         break;
+      case 8:
+         return PERIOD_MN1;
+         break;
+      default:
+         return -1;
+         break;
+   }
+}
