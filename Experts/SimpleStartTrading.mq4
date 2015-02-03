@@ -17,7 +17,7 @@ input double DefaultSL = 30;
 input double DefaultTP = 30;
 input double OrderSize = 0.01;
 input int MagicNumber = 9999;
-input string url="http://localhost/start-signal.csv";
+input string url="http://fx.bartosch.name/start-signal.csv";
 
 int TickCount = 0;
 datetime LastProcessedSignal = 0;
