@@ -56,6 +56,7 @@ extern int BarCount             = 3;
 extern double TimeFrameFaktor   = 1.5;
 
 extern int MaxRetry             = 10;
+extern int FollowUpExpiry       = 1800;
 
 //--- Global variables
 
@@ -74,6 +75,8 @@ extern int MaxRetry             = 10;
 int OnInit() {
   debugLevel(Debug);
   ExitStrategies_Init();
+  if (FollowUpExpiry < 600) debug(1, "FollowUpExpiry must be >= 600");
+  FollowUpExpiry = fmax(600, FollowUpExpiry);
   return(INIT_SUCCEEDED);
 }
 
@@ -87,91 +90,91 @@ void OnDeinit(const int reason) {
 //| expert start function                                            |
 //+------------------------------------------------------------------+
 void OnTick() {
-  int rc, Retry, Ticket;
-  double Correction, TPPips, SLPips, TPTrailPips, TP, SL, SLTrailPips;
-  bool initialTP, resetTP, initialSL, resetSL;
+  int rcint, Retry;
+  bool rc;
 
   // Bearbeitung aller offenen Trades
   debug(4, StringConcatenate("Read Orderbook (Total of all Symbols: ",OrdersTotal(),")"));
   for (int i=0; i<OrdersTotal(); i++) {
-    // Only valid Tickets are processed
-    if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES) == false)    continue;
-    // Only OP_BUY or OP_SELL Tickets are processed
-    if ((OrderType() != OP_BUY) && (OrderType() != OP_SELL))    continue;
-    // according to onlyCurrentSymbol only tickets trading the current symbol are processed
-    if (onlyCurrentSymbol && (OrderSymbol() != Symbol()))       continue;
-    // according to MagicNumber only tickets with fitting magicnumber are processed
-    if (MagicNumber && (OrderMagicNumber() != MagicNumber)) continue;
- 
-    // Possibly determine an correctionfactor
-    Correction = indFaktor();
-    // Falls TPPercent angegeben ist, wird TPPips errechnet
-    TPPips = calcPips(TP_Grenze, TP_Percent, TP_Pips);
-    // Falls SLPercent angegeben ist, wird SLPips errechnet
-    SLPips = calcPips(SL_Grenze, SL_Percent, SL_Pips);
-    // Falls TPTrailPercent angegeben ist, wird TPTrailPips errechnet
-    TPTrailPips = calcPips(TP_Trail_Grenze, TP_Trail_Percent, TP_Trail_Pips);
-    // Falls TPTrailPercent angegeben ist, wird TPTrailPips errechnet
-    SLTrailPips = calcPips(SL_Trail_Grenze, SL_Trail_Percent, SL_Trail_Pips);
-  
-    TP = trailing_TP(Correction, OrderTakeProfit(), TPPips, TPTrailPips, initialTP, resetTP);
-    double tSL = trailing_SL(Correction, OrderStopLoss(),   SLPips, SLTrailPips, initialSL, resetSL, resetTP);
-    double bSL = N_Bar_SL(OrderStopLoss(), SLPips, initialSL, resetSL, -1, BarCount, TimeFrameFaktor);
-    if (OrderType() == OP_BUY) {
-      SL = fmin(tSL, bSL);
-    } else {
-      SL = fmax(tSL, bSL);
-    }
+    if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES) == false) continue; // Only valid Tickets are processed
+    if ((OrderType() > OP_SELL))                             continue; // Only OP_BUY or OP_SELL Tickets are processed
+    if (onlyCurrentSymbol && (OrderSymbol() != Symbol()))    continue; // according to onlyCurrentSymbol only tickets trading the current symbol are processed
+    if (MagicNumber && (OrderMagicNumber() != MagicNumber))  continue; // according to MagicNumber only tickets with fitting magicnumber are processed
     
-    //if (initialTP || initialSL || resetTP || resetSL) {
-    if (SL != OrderStopLoss() || TP != OrderTakeProfit()) {
-      // Print(initialTP, " ", initialSL, " ", resetTP, " ", resetSL, " ", tSL, " ", bSL, " ", SL);
+    // Save my Values
+    int    myTicket          = OrderTicket();
+    int    myOrderType       = OrderType();
+    string myOrderSymbol     = OrderSymbol();
+    double myOrderOpenPrice  = OrderOpenPrice();
+    double myOrderTakeProfit = OrderTakeProfit();
+    double myOrderStopLoss   = OrderStopLoss();
+    double myOrderLots       = OrderLots();
+    
+    // Possibly determine an correctionfactor
+    double Correction = indFaktor();
+    // Calculate real Pips depending on the value given in precent or absolut
+    double TPPips = calcPips(TP_Grenze, TP_Percent, TP_Pips);
+    double SLPips = calcPips(SL_Grenze, SL_Percent, SL_Pips);
+    double TPTrailPips = calcPips(TP_Trail_Grenze, TP_Trail_Percent, TP_Trail_Pips);
+    double SLTrailPips = calcPips(SL_Trail_Grenze, SL_Trail_Percent, SL_Trail_Pips);
+  
+    // Caluculate new TP Value
+    bool initialTP, resetTP;
+    double TP = TP(myOrderTakeProfit, TPPips, TPTrailPips, Correction, initialTP, resetTP);
+
+    // Calculate new SL Value
+    bool initialSL, resetSL;
+    double SL = SL(myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, initialSL, resetSL, resetTP, -1, BarCount, TimeFrameFaktor, myTicket, FollowUpExpiry);
+   
+    if (SL != myOrderStopLoss || TP != myOrderTakeProfit) {
       if (debugLevel() >= 1) {
         string message = "";
-        if (TP != OrderTakeProfit()) message = StringConcatenate(message, " TP:",OrderTakeProfit(), "->", TP, " ");
-        if (SL != OrderStopLoss())   message = StringConcatenate(message, " SL:",OrderStopLoss(), "->", SL, " (Trail:", tSL, " N-Bar:", bSL, "/", BarCount, ")");
+        if (TP != myOrderTakeProfit) message = StringConcatenate(message, " TP:", myOrderTakeProfit, "->", TP, " ");
+        if (SL != myOrderStopLoss)   message = StringConcatenate(message, " SL:", myOrderStopLoss, "->", SL);
+        // if (SL != myOrderStopLoss)   message = StringConcatenate(message, " (Trail:", tSL, " N-Bar:", bSL, "/", BarCount, ")");
         if (Correction != 1)         message = StringConcatenate(message, " Corrections determined as: ", Correction);
-        Print(OrderSymbol(), message);
+        debug(1, StringConcatenate("new TP/SL: ", message));
         if (debugLevel() >= 2) {
-          if (TP_Pips != TPPips)            Print(OrderSymbol(), " TP_Pips changed from ", TP_Pips, " to ", TPPips);
-          if (TP_Trail_Pips != TPTrailPips) Print(OrderSymbol(), " TP_Trail_Pips changed from ", TP_Trail_Pips, " to ", TPTrailPips);
-          if (SL_Pips != SLPips)            Print(OrderSymbol(), " SL_Pips changed from ", SL_Pips, " to ", SLPips);
+          if (TP_Pips != TPPips)            debug(1, StringConcatenate("TP_Pips changed from ", TP_Pips, " to ", TPPips));
+          if (TP_Trail_Pips != TPTrailPips) debug(1, StringConcatenate("TP_Trail_Pips changed from ", TP_Trail_Pips, " to ", TPTrailPips));
+          if (SL_Pips != SLPips)            debug(1, StringConcatenate("SL_Pips changed from ", SL_Pips, " to ", SLPips));
         }
       }
       Retry  = 0;
-      rc     = 0;
-      Ticket = OrderTicket();
-      while ((rc == 0) && (Retry < MaxRetry)) {
+      rc     = false;
+      rcint  = 0;
+      string executedOrder;
+      while (!rc && (Retry<MaxRetry)) {
         RefreshRates();
-        string executedOrder;
         MqlTick tick;
-        SymbolInfoTick(OrderSymbol(), tick);
+        SymbolInfoTick(myOrderSymbol, tick);
         if (OrderType() == OP_BUY) {
           if (tick.bid < SL) {
-            rc = OrderClose(Ticket, OrderLots(), tick.bid, 3, clrNONE);
-            executedOrder = StringConcatenate("OrderClose(", Ticket, ") rc: ", rc);
+            rc = OrderClose(myTicket, myOrderLots, tick.bid, 3, clrNONE);
+            executedOrder = StringConcatenate("OrderClose (", myTicket, ") rc: ", rc);
           } else {
-            rc = OrderModify(Ticket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = StringConcatenate("OrderModify(", Ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
+            rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
+            executedOrder = StringConcatenate("OrderModify (", myTicket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
+            if (!initialSL) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         if (OrderType() == OP_SELL) {
           if (tick.ask > SL) {
-            rc = OrderClose(Ticket, OrderLots(), tick.ask, 3, clrNONE);
-            executedOrder = StringConcatenate("OrderClose(", Ticket, ") rc: ", rc);
+            rc = OrderClose(myTicket, myOrderLots, tick.ask, 3, clrNONE);
+            executedOrder = StringConcatenate("OrderClose (", myTicket, ") rc: ", rc);
           } else {
-            rc = OrderModify(Ticket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = StringConcatenate("OrderModify(", Ticket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
+            rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
+            executedOrder = StringConcatenate("OrderModify (", myTicket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
+            if (!initialSL) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
-        if (!rc) {
-          rc = GetLastError();
-          debug(1, StringConcatenate(executedOrder, " ", rc));
-          Print(IntegerToString(rc) + ": " + ErrorDescription(rc));
-        } else {
-          debug(2, executedOrder);
-        }
         Retry++;
+      }
+      if (!rc) {
+        rcint = GetLastError();
+        debug(1, StringConcatenate(executedOrder, " ", rc, " ", rcint, " ", Retry, ": ", ErrorDescription(rcint)));
+      } else {
+        debug(3, StringConcatenate(executedOrder, "  Retry: ", Retry));
       }
     }
   }

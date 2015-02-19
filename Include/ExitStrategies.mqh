@@ -27,11 +27,15 @@
 
 #import "ExitStrategies.ex4"
   void ExitStrategies_Init();
-  double initial_TP(double myTP, double TPPips, bool& initialTP);
-  double initial_SL(double mySL, double SLPips, bool& initialSL);
-  double trailing_TP(double Correction, double myTP, double TPPips, double TPTrailPips, bool& initialTP, bool& resetTP);
-  double trailing_SL(double Correction, double mySL, double SLPips, double SLTrailPips, bool& initialSL, bool& resetSL, bool resetTP);
-  double N_Bar_SL(double mySL, double SLPips, bool& initialSL, bool& resetSL, int timeframe, int barCount, double timeframeFaktor);
+  int ExitStrategies(string strategie, bool On);
+  double TP(double TP, double TPPips, double TPTrailPips, double Correction, bool& initialTP, bool& resetTP);
+  double SL(double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, bool& initialSL, bool& resetSL, bool resetTP, int timeframe, int barCount, double timeframeFaktor, int ticketID, int expirys);
+  string initial_TP(double& TP, double TPPips, bool& initialTP);
+  string initial_SL(double& SL, double SLPips, bool& initialSL);
+  string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correction, bool& initialTP, bool& resetTP);
+  string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correction, bool& initialSL, bool& resetSL, bool resetTP);
+  string N_Bar_SL(double& SL, double SLPips, bool& initialSL, bool& resetSL, bool resetTP, int timeframe, int barCount, double timeframeFaktor);
+  int followUpOrder(int ticketID, int expiry);
 #import
 
 #endif
