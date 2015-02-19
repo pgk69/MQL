@@ -119,12 +119,10 @@ void OnTick() {
     double SLTrailPips = calcPips(SL_Trail_Grenze, SL_Trail_Percent, SL_Trail_Pips);
   
     // Caluculate new TP Value
-    bool initialTP, resetTP;
-    double TP = TP(myOrderTakeProfit, TPPips, TPTrailPips, Correction, initialTP, resetTP);
+    double TP = TP(myOrderTakeProfit, TPPips, TPTrailPips, Correction);
 
     // Calculate new SL Value
-    bool initialSL, resetSL;
-    double SL = SL(myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, initialSL, resetSL, resetTP, -1, BarCount, TimeFrameFaktor, myTicket, FollowUpExpiry);
+    double SL = SL(myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, -1, BarCount, TimeFrameFaktor, myTicket, FollowUpExpiry);
    
     if (SL != myOrderStopLoss || TP != myOrderTakeProfit) {
       if (debugLevel() >= 1) {
@@ -155,7 +153,7 @@ void OnTick() {
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
             executedOrder = StringConcatenate("OrderModify (", myTicket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
-            if (!initialSL) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         if (OrderType() == OP_SELL) {
@@ -165,7 +163,7 @@ void OnTick() {
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
             executedOrder = StringConcatenate("OrderModify (", myTicket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
-            if (!initialSL) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         Retry++;

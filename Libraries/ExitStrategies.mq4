@@ -81,10 +81,10 @@ bool SL_active(double TPPips, double SLPips) {
 //+------------------------------------------------------------------+
 //| determine TP                                                     |
 //+------------------------------------------------------------------+
-double TP(double TP, double TPPips, double TPTrailPips, double Correction, bool& initialTP, bool& resetTP) export {
+double TP(double TP, double TPPips, double TPTrailPips, double Correction) export {
   double newTP = TP;
-  debug(2, initial_TP(newTP, TPPips, initialTP));
-  debug(2, trailing_TP(newTP, TPPips, TPTrailPips, Correction, initialTP, resetTP));
+  debug(2, initial_TP(newTP, TPPips));
+  debug(2, trailing_TP(newTP, TPPips, TPTrailPips, Correction));
   return(newTP);
 }
 
@@ -92,17 +92,20 @@ double TP(double TP, double TPPips, double TPTrailPips, double Correction, bool&
 //+------------------------------------------------------------------+
 //| determine SL                                                     |
 //+------------------------------------------------------------------+
-double SL(double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, bool& initialSL, bool& resetSL, bool resetTP, int timeframe, int barCount, double timeframeFaktor, int ticketID, int expirys) export {
+double SL(double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, int timeframe, int barCount, double timeframeFaktor, int ticketID, int expirys) export {
   double newSL = SL;
-  debug(2, initial_SL(newSL, SLPips, initialSL));
-  if (!initialSL && SL_active(TPPips, SLPips)) {
+  debug(2, initial_SL(newSL, SLPips));
+  // debug(2, StringConcatenate("SL activ: ", SL_active(TPPips, SLPips)));
+  if ((SL != 0) && SL_active(TPPips, SLPips)) {
     double SL1 = SL;
-    string message1 = trailing_SL(SL1, SLPips, SLTrailPips, Correction, initialSL, resetSL, resetTP);
-    newSL = (OrderType() == OP_BUY) ? fmin(newSL, SL1): fmax(newSL, SL1);
+    string message1 = trailing_SL(SL1, SLPips, SLTrailPips, Correction);
+    newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL1): fmin(newSL, SL1);
+    debug(2, StringConcatenate("newSL: ", newSL));
     double SL2 = SL;
-    string message2 = N_Bar_SL(SL2, SLPips, initialSL, resetSL, resetTP, timeframe, barCount, timeframeFaktor);
-    newSL = (OrderType() == OP_BUY) ? fmin(newSL, SL2): fmax(newSL, SL2);
-
+    string message2 = N_Bar_SL(SL2, SLPips, timeframe, barCount, timeframeFaktor);
+    newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL2): fmin(newSL, SL2);
+    debug(2, StringConcatenate("newSL: ", newSL));
+ 
     if ((newSL == SL1) && (SL != SL1)) debug(2, message1);
     if ((newSL == SL2) && (SL != SL2)) debug(2, message2);
   }
@@ -117,13 +120,12 @@ double SL(double SL, double TPPips, double SLPips, double SLTrailPips, double Co
 //+------------------------------------------------------------------+
 //| determine initial TP  ID:0                                       |
 //+------------------------------------------------------------------+
-string initial_TP(double& TP, double TPPips, bool& initialTP) export {
+string initial_TP(double& TP, double TPPips) export {
   int ID = 0;
   MqlTick tick;
   double newTP = TP;
 
   message = "";
-  initialTP = false;
   if (strategy[ID]) {
     if (TP == 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
@@ -138,7 +140,6 @@ string initial_TP(double& TP, double TPPips, bool& initialTP) export {
           message = StringConcatenate("initial TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newTP);
           debug(3, message);
           TP = newTP;
-          initialTP = true;
         }
       }
     }
@@ -151,31 +152,26 @@ string initial_TP(double& TP, double TPPips, bool& initialTP) export {
 //+------------------------------------------------------------------+
 //| determine trailing TP  ID: 1                                     |
 //+------------------------------------------------------------------+
-string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correction, bool& initialTP, bool& resetTP) export {
+string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correction) export {
   int ID = 1;
   MqlTick tick;
   double newTP = TP;
-  double newTPTrail;
 
   message = "";
-  resetTP = false;
   if (strategy[ID]) {
     if (TP != 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
-          newTPTrail = NormRound(tick.bid + Correction*TPTrailPips);
-          newTP      = fmax(TP, newTPTrail);                           // TP will never be decreased
+          newTP = fmax(TP, NormRound(tick.bid + Correction*TPTrailPips)); // TP will never be decreased
         }
         if (OrderType() == OP_SELL) {
-          newTPTrail = NormRound(tick.ask - Correction*TPTrailPips);
-          newTP      = fmin(TP, newTPTrail);                           // TP will never be increased
+          newTP = fmin(TP, NormRound(tick.ask - Correction*TPTrailPips)); // TP will never be increased
         }
     
         if (newTP != TP) {
           message = StringConcatenate("trailing TakeProfit ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", TP, " new: ", newTP);
           debug(3, message);
           TP = newTP;
-          resetTP = true;
         }
       }
     }
@@ -188,13 +184,12 @@ string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correct
 //+------------------------------------------------------------------+
 //| determine initial SL  ID: 2                                      |
 //+------------------------------------------------------------------+
-string initial_SL(double& SL, double SLPips, bool& initialSL) export {
+string initial_SL(double& SL, double SLPips) export {
   int ID = 2;
   MqlTick tick;
   double newSL = SL;
 
   message = "";
-  initialSL = false;
   if (strategy[ID]) {
     if (SL == 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
@@ -208,7 +203,6 @@ string initial_SL(double& SL, double SLPips, bool& initialSL) export {
           message = StringConcatenate("initial StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " initial: ", newSL);
           debug(3, message);
           SL = newSL;
-          initialSL = true;
         }
       }
     }
@@ -221,31 +215,25 @@ string initial_SL(double& SL, double SLPips, bool& initialSL) export {
 //+------------------------------------------------------------------+
 //| determine trailing SL  ID: 3                                     |
 //+------------------------------------------------------------------+
-string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correction, bool& initialSL, bool& resetSL, bool resetTP) export {
+string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correction) export {
   int ID = 3;
   MqlTick tick;
   double newSL = SL;
 
   message = "";
-  resetSL = false;
   if (strategy[ID]) {
     if (SL != 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
-          if (resetTP) {  // Increase Trailing SL if TP was increased; SL will never be decreased
-            newSL = fmax(SL, NormRound(tick.bid - SLTrailPips));
-          }
+          newSL = fmax(SL, NormRound(tick.bid - SLTrailPips));
         }
         if (OrderType() == OP_SELL) {
-          if (resetTP) {  // Decrease Trailing SL if TP was decreased; SL will never be increased
-            newSL = fmin(SL, NormRound(tick.ask + SLTrailPips));
-          }
+          newSL = fmin(SL, NormRound(tick.ask + SLTrailPips));
         }
         if (newSL != SL) {
           message = StringConcatenate("trailing StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", SL, " new: ", newSL);
           debug(3, message);
           SL = newSL;
-          resetSL = true;
         }
       }
     }
@@ -258,13 +246,12 @@ string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correct
 //+------------------------------------------------------------------+
 //| determine N-Bar SL  ID: 4                                        |
 //+------------------------------------------------------------------+
-string N_Bar_SL(double SL, double SLPips, bool& initialSL, bool& resetSL, bool resetTP, int timeframe, int barCount, double timeframeFaktor) export {
+string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double timeframeFaktor) export {
   int ID = 4;
   MqlTick tick;
   double newSL = SL;
   
   message = "";
-  resetSL = false;
   if (strategy[ID]) {
     int barTime = 0;
     if (timeframe < 0) {
@@ -302,7 +289,6 @@ string N_Bar_SL(double SL, double SLPips, bool& initialSL, bool& resetSL, bool r
           message = StringConcatenate(barCount, "-Bar StopLoss (Periode: ", timeframe, "/", barTime, "/", timeframeFaktor, ") ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", SL, " new: ", newSL);
           debug(3, message);
           SL = newSL;
-          resetSL = true;
         }
       }
     }
@@ -332,14 +318,11 @@ int followUpOrder(int ticketID, int expiry) export {
       bool found = false;
       for (int i=0; i<OrdersTotal(); i++) {
         if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES)) continue; // Only valid Tickets are processed
-        if (OrderType() != limit_type)                   continue; // Only OP_BUY or OP_SELL Tickets are processed
         if (myMagic && (OrderMagicNumber() != myMagic))  continue; // according to MagicNumber only tickets with fitting magicnumber are processed
         found |= (StringFind(OrderComment(), comment)>=0);         // Source Order is not referenced
         if (found) break;
-        debug(2, StringConcatenate(comment, " ", OrderComment(), " ", found, " ", StringFind(OrderComment(), comment)));
       }
       if (!found) {
-//        rc = OrderSend(mySymbol, limit_type, myLots, myPrice, 3, 0, 0, comment, myMagic, TimeCurrent() + expiry, clrNONE);
         rc = OrderSend(mySymbol, limit_type, myLots, myPrice, 3, 0, 0, comment, myMagic, TimeCurrent() + expiry, clrNONE);
         debug(3, originalTrade);
         debug(2, StringConcatenate("followUpOrder: OrderSend (", mySymbol, ", ", limit_type, ", ", myLots, ", ", myPrice-50, ", 3, 0, 0, ", comment, ", ", myMagic, ", ", TimeCurrent() + expiry, ", CLR_NONE): ", rc));
