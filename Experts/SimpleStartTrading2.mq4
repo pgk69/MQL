@@ -12,7 +12,7 @@
 input double MaxGoodSlippage = 5;
 input double MaxBadSlippage = 5;
 input int MaxSignalAge = 180;
-input int SignalExpiration = 600;
+input int SignalExpiration = 3600;
 input double DefaultSL = 30;
 input double DefaultTP = 30;
 input double OrderSize = 0.1;
@@ -23,6 +23,7 @@ int TickCount = 0;
 datetime LastProcessedSignal = 0;
 uchar sep = ';';
 
+#include <ToolBox.mqh>
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -30,7 +31,8 @@ uchar sep = ';';
 int OnInit()
   {
 //---
-   
+  if (SignalExpiration < 600) debug(1, "SignalExpiration must be >= 600");
+  SignalExpiration = fmax(600, SignalExpiration);
 //---
    return(INIT_SUCCEEDED);
   }
@@ -123,7 +125,7 @@ void OnTick() {
         if ((MaxGoodSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxBadSlippage)) {
           Print("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice);
           ExecuteType = OP_BUYLIMIT;
-          Expiration = TimeLocal() + SignalExpiration;
+          Expiration = TimeCurrent() + SignalExpiration;
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
@@ -142,7 +144,7 @@ void OnTick() {
         if ((MaxBadSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxGoodSlippage)) {
           Print("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice);
           ExecuteType = OP_SELLLIMIT;
-          Expiration = TimeLocal() + SignalExpiration;
+          Expiration = TimeCurrent() + SignalExpiration;
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
