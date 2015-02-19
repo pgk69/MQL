@@ -34,8 +34,8 @@ extern int DebugLevel           = 2;
 //| debug funktion                                                   |
 //+------------------------------------------------------------------+
 void debug(int level, string message) export {
-  if (DebugLevel >= level) {
-    Print(StringConcatenate(OrderSymbol(), " ", message));
+  if (DebugLevel >= level && message != "") {
+    Print(message);
   }
 }
 
@@ -79,7 +79,7 @@ double calcPips(double Boundary, double Percent, double Pips) export {
   } else {
     newPips = 10*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Pips;
   }
-  // Print("Old: " + Pips + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE));
+  // debug(4, StringConcatenate("Old: " + Pips + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE)));
   return(newPips);
 }
 
@@ -92,7 +92,7 @@ double NormRound(double Value) export {
   int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
   double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
 
-  if (DebugLevel > 2) Print("Normalizing ", Value, " OrderTradeTickSize * round(Value/OrderTradeTickSize): ", OrderTradeTickSize * round(Value/OrderTradeTickSize), "  NormalizeDouble(Value, OrderDigits): ", NormalizeDouble(Value, OrderDigits));
+  debug(4, StringConcatenate("Normalizing ", Value, " OrderTradeTickSize * round(Value/OrderTradeTickSize): ", OrderTradeTickSize * round(Value/OrderTradeTickSize), "  NormalizeDouble(Value, OrderDigits): ", NormalizeDouble(Value, OrderDigits)));
   Value = OrderTradeTickSize * round(Value/OrderTradeTickSize);
   Value = NormalizeDouble(Value, OrderDigits);
 
