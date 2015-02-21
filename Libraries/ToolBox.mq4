@@ -10,7 +10,7 @@
 #property strict
 
 //--- input parameters
-extern int DebugLevel           = 2;
+extern int DebugLevel           = 2;  // Debug Level
 // Level 0: Keine Debugausgaben
 // Level 1: Nur Orderaenderungen werden protokolliert
 // Level 2: Alle Aenderungen werden protokolliert
@@ -35,7 +35,7 @@ extern int DebugLevel           = 2;
 //+------------------------------------------------------------------+
 void debug(int level, string message) export {
   if (DebugLevel >= level && message != "") {
-    Print(message);
+    Print(OrderTicket(), " ", message);
   }
 }
 
@@ -66,20 +66,20 @@ double indFaktor() export {
 //+------------------------------------------------------------------+
 //| Calculate Percent to Pips                                        |
 //+------------------------------------------------------------------+
-double calcPips(double Boundary, double Percent, double Pips) export {
+double calcPips(double Percent, double Value) export {
   double newPips;
   MqlTick tick;
   
-  if(Boundary && Percent && SymbolInfoTick(OrderSymbol(), tick)) {
+  if (Percent && Value && SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      newPips = Percent/100 * tick.ask;
+      newPips = Value/100 * tick.ask;
     } else {
-      newPips = Percent/100 * tick.bid;
+      newPips = Value/100 * tick.bid;
     }
   } else {
-    newPips = 10*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Pips;
+    newPips = 10*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Value;
   }
-  // debug(4, StringConcatenate("Old: " + Pips + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE)));
+  // debug(4, StringConcatenate("Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE)));
   return(newPips);
 }
 

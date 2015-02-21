@@ -30,7 +30,7 @@
   int debugLevel(int level=-1);
   void debug(int level, string message);
   double indFaktor();
-  double calcPips(double Boundary, double Percent, double Pips);
+  double calcPips(double Percent, double Value);
   double NormRound(double Value);
   int PeriodToIndex(int period);
   int IndexToPeriod(int index);
