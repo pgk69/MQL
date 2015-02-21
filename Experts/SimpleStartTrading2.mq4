@@ -12,7 +12,7 @@
 input double MaxGoodSlippage = 5;
 input double MaxBadSlippage = 5;
 input int MaxSignalAge = 180;
-input int SignalExpiration = 3600;
+extern int SignalExpiration = 3600;
 input double DefaultSL = 30;
 input double DefaultTP = 30;
 input double OrderSize = 0.1;
@@ -28,53 +28,43 @@ uchar sep = ';';
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
-int OnInit()
-  {
-//---
+int OnInit() {
   if (SignalExpiration < 600) debug(1, "SignalExpiration must be >= 600");
   SignalExpiration = fmax(600, SignalExpiration);
-//---
-   return(INIT_SUCCEEDED);
-  }
+  return(INIT_SUCCEEDED);
+}
   
   
 //+------------------------------------------------------------------+
 //| Expert deinitialization function                                 |
 //+------------------------------------------------------------------+
-void OnDeinit(const int reason)
-  {
-//---
-   
-  }
+void OnDeinit(const int reason) {
+}
   
   
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
-  
   if (TickCount++ % 10 == 0) {
-   // Alert("20. Tick");
-   string cookie=NULL;
-   string headers;
-   char post[];
-   char result[];
+    // Alert("20. Tick");
+    string cookie=NULL;
+    string headers;
+    char post[];
+    char result[];
 
-   int res;
-//--- for working with server you need to add "https://www.google.com/finance" 
-//--- to the list of the allowed URLs (Main menu->Tools->Options, "Expert Advisors" tab)
-//--- reset last error
-   ResetLastError();
-//--- load html page from Google Finance
-   int timeout=500; //--- timeout less than 1000 (1 sec.) is not sufficient for slow Internet speed
-   res=WebRequest("GET", url, cookie, NULL, timeout, post, 0, result, headers);
-//--- check errors
-   if(res==-1)
-     {
+    int res;
+    //--- for working with server you need to add "https://www.google.com/finance" 
+    //--- to the list of the allowed URLs (Main menu->Tools->Options, "Expert Advisors" tab)
+    //--- reset last error
+    ResetLastError();
+    //--- load html page from Google Finance
+    int timeout=500; //--- timeout less than 1000 (1 sec.) is not sufficient for slow Internet speed
+    res=WebRequest("GET", url, cookie, NULL, timeout, post, 0, result, headers);
+    //--- check errors
+    if (res==-1) {
       // Alert("Error code =",GetLastError());
-     }
-   else
-     {
+    } else {
       //--- successful
       // PrintFormat("Download successful, size =%d bytes.",ArraySize(result));
       //--- save data to file
@@ -103,10 +93,9 @@ void OnTick() {
         return;
       }
 
-      if (LastProcessedSignal == signaltimestamp_epoch) {
-        // signal has already been processed, ignore
-        return;
-      }
+      // signal has already been processed, ignore
+      if (LastProcessedSignal == signaltimestamp_epoch) return;
+   
       // all checks OK, let's mark this signal as processed
       // perform sanity checks
       // process the signal
@@ -118,6 +107,7 @@ void OnTick() {
       double Price;
       int ExecuteType;
       datetime Expiration;
+
       if (StringCompare("DAX Long", signal[0]) == 0) {
         Price = Ask;
         ExecuteType = OP_BUY;
@@ -129,14 +119,11 @@ void OnTick() {
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
-        if (SignalSL < Price - (DefaultSL + 10))
-          SignalSL = Price - DefaultSL;
-          
-        if (SignalTP > Price + (DefaultTP + 10))
-          SignalTP = Price + DefaultTP;
-          
+        if (SignalSL < Price - (DefaultSL + 10)) SignalSL = Price - DefaultSL;
+        if (SignalTP > Price + (DefaultTP + 10)) SignalTP = Price + DefaultTP;
         OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
       }
+
       if (StringCompare("DAX Short", signal[0]) == 0) {
         Price = Bid;
         ExecuteType = OP_SELL;
@@ -148,12 +135,8 @@ void OnTick() {
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
-        if (SignalSL > Price + (DefaultSL + 10))
-          SignalSL = Price + DefaultSL;
-          
-        if (SignalTP < Price - (DefaultTP + 10))
-          SignalTP = Price - DefaultTP;
-          
+        if (SignalSL > Price + (DefaultSL + 10)) SignalSL = Price + DefaultSL;
+        if (SignalTP < Price - (DefaultTP + 10)) SignalTP = Price - DefaultTP;
         OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
       }
     }
