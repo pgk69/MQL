@@ -15,7 +15,7 @@
 // common
 
 //--- Global variables
-int strategy[6];
+int strategy[101];
 string message;
 
 //+------------------------------------------------------------------+
@@ -23,19 +23,14 @@ string message;
 //+------------------------------------------------------------------+
 void ExitStrategies_Init() export {
   debug(1, StringConcatenate("ExitStrategies Version: ", VERSION));
-  ExitStrategie("InitialTP",     1);
-  ExitStrategie("TrailingTP",    1);
-  ExitStrategie("Initial",       1);
-  ExitStrategie("Trailing",      1);
-  ExitStrategie("N-Bar",         1);
-  ExitStrategie("FollowUpOrder", 1);
+  ArrayInitialize(strategy, true);
 }
 
 
 //+------------------------------------------------------------------+
 //| TP/SL strategy activation function                               |
 //+------------------------------------------------------------------+
-int ExitStrategie(string strategie, int On) export {
+int ExitStrategieStatus(string strategie, bool On) export {
   int rc = -1;
   int idx = -1;
   
@@ -44,12 +39,14 @@ int ExitStrategie(string strategie, int On) export {
   if (strategie == "Initial")       idx = 2;
   if (strategie == "Trailing")      idx = 3;
   if (strategie == "N-Bar")         idx = 4;
-  if (strategie == "FollowUpOrder") idx = 5;
+  if (strategie == "Steps")         idx = 5;
+  
+  if (strategie == "FollowUpOrder") idx = 100;
 
   if (idx >= 0) {
     if (On == 1 || On == 0) strategy[idx] = On;
     rc = strategy[idx];
-    debug(1, StringConcatenate("ExitStrategie ", strategie, " (", idx, ") is turned ", rc));
+    debug(1, StringConcatenate("ExitStrategie ", strategie, " (", idx, ") ", rc ? "On" : "Off"));
   }
   return(rc);
 }
@@ -81,7 +78,7 @@ bool SL_active(double TPPips, double SLPips) {
 //+------------------------------------------------------------------+
 //| determine TP                                                     |
 //+------------------------------------------------------------------+
-double TP(double TP, double TPPips, double TPTrailPips, double Correction) export {
+double TakeProfit(double TP, double TPPips, double TPTrailPips, double Correction) export {
   double newTP = TP;
   debug(2, initial_TP(newTP, TPPips));
   debug(2, trailing_TP(newTP, TPPips, TPTrailPips, Correction));
@@ -92,22 +89,42 @@ double TP(double TP, double TPPips, double TPTrailPips, double Correction) expor
 //+------------------------------------------------------------------+
 //| determine SL                                                     |
 //+------------------------------------------------------------------+
-double SL(double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, int timeframe, int barCount, double timeframeFaktor, int ticketID, int expirys) export {
+double StopLoss(double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, int timeframe, int barCount, double timeframeFaktor, double SLStepsPips, double SLStepsDist, int ticketID, int expirys) export {
   double newSL = SL;
   debug(2, initial_SL(newSL, SLPips));
   // debug(2, StringConcatenate("SL activ: ", SL_active(TPPips, SLPips)));
   if ((SL != 0) && SL_active(TPPips, SLPips)) {
+
+    // ID 3: Trailing SL
     double SL1 = SL;
-    string message1 = trailing_SL(SL1, SLPips, SLTrailPips, Correction);
-    newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL1): fmin(newSL, SL1);
-    debug(2, StringConcatenate("newSL: ", newSL));
+    string message1 = "";
+    if (strategy[3]) {
+      message1 = trailing_SL(SL1, SLPips, SLTrailPips, Correction);
+      newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL1): fmin(newSL, SL1);
+      debug(3, StringConcatenate("Trailing SL newSL: ", newSL));
+    }
+
+    // ID 4: N-Bar SL
     double SL2 = SL;
-    string message2 = N_Bar_SL(SL2, SLPips, timeframe, barCount, timeframeFaktor);
-    newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL2): fmin(newSL, SL2);
-    debug(2, StringConcatenate("newSL: ", newSL));
+    string message2 = "";
+    if (strategy[4]) {
+      message2 = N_Bar_SL(SL2, SLPips, timeframe, barCount, timeframeFaktor);
+      newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL2): fmin(newSL, SL2);
+      debug(3, StringConcatenate("N-Bar newSL: ", newSL));
+    }
+
+    // ID 5: Steps SL
+    double SL3 = SL;
+    string message3 = "";
+    if (strategy[5]) {
+      message3 = Steps_SL(SL3, SLStepsPips, SLStepsDist);
+      newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL3): fmin(newSL, SL3);
+      debug(3, StringConcatenate("Steps newSL: ", newSL));
+    }
  
     if ((newSL == SL1) && (SL != SL1)) debug(2, message1);
     if ((newSL == SL2) && (SL != SL2)) debug(2, message2);
+    if ((newSL == SL3) && (SL != SL3)) debug(2, message3);
   }
   return(newSL);
 }
@@ -253,7 +270,7 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
   
   message = "";
   if (strategy[ID]) {
-    int barTime = 0;
+    double barTime = 0;
     if (timeframe < 0) {
       // no timeframe is given, so we decide outselfs
       // based on how long the order is activ
@@ -299,10 +316,43 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
 
 
 //+------------------------------------------------------------------+
-//| FollowUp Order  ID: 5                                            |
+//| determine Steps SL  ID: 5                                        |
+//+------------------------------------------------------------------+
+ string Steps_SL(double& SL, double SLStepsPips, double SLStepsDist) export {
+  int ID = 5;
+  MqlTick tick;
+  double newSL = SL;
+
+  message = "";
+  if (strategy[ID]) {
+    if (SL != 0) {
+      if (SymbolInfoTick(OrderSymbol(), tick)) {
+        if (OrderType() == OP_BUY) {
+          double Step = floor((tick.bid - OrderOpenPrice() - SLStepsDist)/SLStepsPips);
+          newSL = fmax(SL, NormRound(OrderOpenPrice() + Step*SLStepsPips));
+        }
+        if (OrderType() == OP_SELL) {
+          double Step = floor((OrderOpenPrice() - tick.ask - SLStepsDist)/SLStepsPips);
+          newSL = fmin(SL, NormRound(OrderOpenPrice() - Step*SLStepsPips));
+        }
+        if (newSL != SL) {
+          message = StringConcatenate("Steps StopLoss ", OrderType() ? "short" : "long", " Order (", OrderTicket(), "): Buyprice: ", OrderOpenPrice(), " Bid/Ask: ", tick.bid, "/",tick.ask, " old: ", SL, " new: ", newSL);
+          debug(3, message);
+          SL = newSL;
+        }
+      }
+    }
+  }
+
+  return(message);
+}
+
+
+//+------------------------------------------------------------------+
+//| FollowUp Order  ID: 100                                          |
 //+------------------------------------------------------------------+
 int followUpOrder(int ticketID, int expiry) export {
-  int ID = 5;
+  int ID = 100;
 
   int rc = 0;
   if (strategy[ID]) {

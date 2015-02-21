@@ -16,9 +16,7 @@ enum Abs_Proz
 //--- input parameters
 //- MagicNumber:    0: Every trade will be monitored
 //               <> 0: Only trades with MagicNumber will be monitored
-extern int MagicNumber = 0;
-
-extern int Debug       = 2;
+extern int Debug             = 2;  // Debug Level
 // Level 0: Keine Debugausgaben
 // Level 1: Nur Orderaenderungen werden protokolliert
 // Level 2: Alle Aenderungen werden protokolliert
@@ -26,37 +24,44 @@ extern int Debug       = 2;
 // Level 4: Programmschritte und Datenstrukturen werden im Detail 
 //          protokolliert
 
+input int MagicNumber        = 0;
 
 //- onlyCurrentSymbol: true:  Only the current Symbol will be monitored
 //                     false: every Symbol will be monitored
-extern bool onlyCurrentSymbol   = true;
+input bool onlyCurrentSymbol = true;
 
-// determine initial TP
-extern double TP_Pips           = 30;
-extern double TP_Percent        = 0.3;
-extern Abs_Proz TP_Grenze       = Pips; 
+input Abs_Proz Percent       = Pips;  // Values given in Pips or Percent
+
+// determine initial TP  30 Pipa = 0.3 Percent
+// Pips: 30
+// Percent: 0.3
+input double TP_Val          = 10;    // Initial TP Value
 
 // determine trailing TP
-extern double TP_Trail_Pips     = 10;
-extern double TP_Trail_Percent  = 0.10;
-extern Abs_Proz TP_Trail_Grenze = Pips;
+input double TP_Trail_Val    = 5;     // Trailing TP Value
 
 // determine initial SL
-extern double SL_Pips           = 30;
-extern double SL_Percent        = 0.3;
-extern Abs_Proz SL_Grenze       = Pips;
+input double SL_Val          = 10;    // Initial SL Value
 
 // determine trailing SL
-extern double SL_Trail_Pips     = 5;
-extern double SL_Trail_Percent  = 0.05;
-extern Abs_Proz SL_Trail_Grenze = Pips;
+input bool SL_Trail_activ    = false; // Activate Trailing SL?
+input double SL_Trail_Val    = 5;     // Trailing SL Value
 
 // determine N_Bar SL
-extern int BarCount             = 3;
-extern double TimeFrameFaktor   = 1.5;
+input bool SL_N_Bar_activ    = false; // Activate N-Bar SL?
+input int BarCount           = 3;     // N-Bar SL: Number of Bars
+input int TimeFrame          = -1;    // N-Bar SL: TimeFrame (Autodetect: -1)
+input double TimeFrameFaktor = 1.5;   // N-Bar SL: Adatption Timefaktor
 
-extern int MaxRetry             = 10;
-extern int FollowUpExpiry       = 1800;
+// determine Steps SL
+input bool SL_Steps_activ    = true;  // Activate Steps SL?
+input double SL_Steps_Size   = 15;    // Steps SL: Size of one Step
+input double SL_Steps_Val    = 5;     // Steps SL: Triggerdistance above one Stepborder
+
+input bool FollowUp_activ    = false; // Activate FollowUp Trade?
+extern int FollowUpExpiry    = 1800;  // FollowUp Order Expiry Time
+
+input int MaxRetry           = 10;   // OrderSend/OrderModify max. Retry
 
 //--- Global variables
 
@@ -77,6 +82,10 @@ int OnInit() {
   ExitStrategies_Init();
   if (FollowUpExpiry < 600) debug(1, "FollowUpExpiry must be >= 600");
   FollowUpExpiry = fmax(600, FollowUpExpiry);
+  ExitStrategieStatus("Trailing",      SL_Trail_activ);
+  ExitStrategieStatus("N-Bar",         SL_N_Bar_activ);
+  ExitStrategieStatus("Steps",         SL_Steps_activ);
+  ExitStrategieStatus("FollowUpOrder", FollowUp_activ);
   return(INIT_SUCCEEDED);
 }
 
@@ -113,16 +122,18 @@ void OnTick() {
     // Possibly determine an correctionfactor
     double Correction = indFaktor();
     // Calculate real Pips depending on the value given in precent or absolut
-    double TPPips = calcPips(TP_Grenze, TP_Percent, TP_Pips);
-    double SLPips = calcPips(SL_Grenze, SL_Percent, SL_Pips);
-    double TPTrailPips = calcPips(TP_Trail_Grenze, TP_Trail_Percent, TP_Trail_Pips);
-    double SLTrailPips = calcPips(SL_Trail_Grenze, SL_Trail_Percent, SL_Trail_Pips);
+    double TPPips = calcPips(Percent, TP_Val);
+    double SLPips = calcPips(Percent, SL_Val);
+    double TPTrailPips = calcPips(Percent, TP_Trail_Val);
+    double SLTrailPips = calcPips(Percent, SL_Trail_Val);
+    double SLStepsPips = calcPips(Percent, SL_Steps_Size);
+    double SLStepsDist = calcPips(Percent, SL_Steps_Val);
   
     // Caluculate new TP Value
-    double TP = TP(myOrderTakeProfit, TPPips, TPTrailPips, Correction);
+    double TP = TakeProfit(myOrderTakeProfit, TPPips, TPTrailPips, Correction);
 
     // Calculate new SL Value
-    double SL = SL(myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, -1, BarCount, TimeFrameFaktor, myTicket, FollowUpExpiry);
+    double SL = StopLoss(myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, TimeFrame, BarCount, TimeFrameFaktor, SLStepsPips, SLStepsDist, myTicket, FollowUpExpiry);
    
     if (SL != myOrderStopLoss || TP != myOrderTakeProfit) {
       if (debugLevel() >= 1) {
@@ -133,9 +144,12 @@ void OnTick() {
         if (Correction != 1)         message = StringConcatenate(message, " Corrections determined as: ", Correction);
         debug(1, StringConcatenate("new TP/SL: ", message));
         if (debugLevel() >= 2) {
-          if (TP_Pips != TPPips)            debug(1, StringConcatenate("TP_Pips changed from ", TP_Pips, " to ", TPPips));
-          if (TP_Trail_Pips != TPTrailPips) debug(1, StringConcatenate("TP_Trail_Pips changed from ", TP_Trail_Pips, " to ", TPTrailPips));
-          if (SL_Pips != SLPips)            debug(1, StringConcatenate("SL_Pips changed from ", SL_Pips, " to ", SLPips));
+          if (TP_Val != TPPips)             debug(1, StringConcatenate("TP Pips changed from ", TP_Val, " to ", TPPips));
+          if (TP_Trail_Val != TPTrailPips)  debug(1, StringConcatenate("TP trailing Pips changed from ", TP_Trail_Val, " to ", TPTrailPips));
+          if (SL_Val != SLPips)             debug(1, StringConcatenate("SL Pips changed from ", SL_Val, " to ", SLPips));
+          if (SL_Trail_Val != SLTrailPips)  debug(1, StringConcatenate("SL trailing Pips changed from ", SL_Trail_Val, " to ", SLTrailPips));
+          if (SL_Steps_Size != SLStepsPips) debug(1, StringConcatenate("SL Steps Size (Pips) changed from ", SL_Steps_Size, " to ", SLStepsPips));
+          if (SL_Steps_Val != SLStepsDist)  debug(1, StringConcatenate("SL Steps Distance (Pips) changed from ", SL_Steps_Val, " to ", SLStepsDist));
         }
       }
       Retry  = 0;
