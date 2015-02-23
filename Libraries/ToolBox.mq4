@@ -18,6 +18,9 @@ extern int DebugLevel           = 2;  // Debug Level
 // Level 4: Programmschritte und Datenstrukturen werden im Detail 
 //          protokolliert
 
+extern int PipCorrection            = 1;
+// extern int PipCorrection            = 10;
+
 //--- Global variables
 
 //+------------------------------------------------------------------+
@@ -52,6 +55,17 @@ int debugLevel(int level=-1) export {
 
 
 //+------------------------------------------------------------------+
+//| pipCorrection funktion                                           |
+//+------------------------------------------------------------------+
+int pipCorrection(int level=-1) export {
+  if (level >= 0) {
+    PipCorrection = fabs(level);
+  }
+  return(PipCorrection);
+}
+
+
+//+------------------------------------------------------------------+
 //| Calculate factor                                                 |
 //+------------------------------------------------------------------+
 double indFaktor() export {
@@ -77,7 +91,7 @@ double calcPips(double Percent, double Value) export {
       newPips = Value/100 * tick.bid;
     }
   } else {
-    newPips = 10*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Value;
+    newPips = PipCorrection*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Value;
   }
   // debug(4, StringConcatenate("Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE)));
   return(newPips);

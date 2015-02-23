@@ -29,6 +29,7 @@
 #import "ToolBox.ex4"
   int debugLevel(int level=-1);
   void debug(int level, string message);
+  int pipCorrection(int level=-1);
   double indFaktor();
   double calcPips(double Percent, double Value);
   double NormRound(double Value);

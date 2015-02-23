@@ -35,16 +35,16 @@ input Abs_Proz Percent       = Pips;  // Values given in Pips or Percent
 // determine initial TP  30 Pipa = 0.3 Percent
 // Pips: 30
 // Percent: 0.3
-input double TP_Val          = 10;    // Initial TP Value
+input double TP_Val          = 30;    // Initial TP Value
 
 // determine trailing TP
 input double TP_Trail_Val    = 5;     // Trailing TP Value
 
 // determine initial SL
-input double SL_Val          = 10;    // Initial SL Value
+input double SL_Val          = 30;    // Initial SL Value
 
 // determine trailing SL
-input bool SL_Trail_activ    = false; // Activate Trailing SL?
+input bool SL_Trail_activ    = true;  // Activate Trailing SL?
 input double SL_Trail_Val    = 5;     // Trailing SL Value
 
 // determine N_Bar SL
@@ -54,7 +54,7 @@ input int TimeFrame          = -1;    // N-Bar SL: TimeFrame (Autodetect: -1)
 input double TimeFrameFaktor = 1.5;   // N-Bar SL: Adatption Timefaktor
 
 // determine Steps SL
-input bool SL_Steps_activ    = true;  // Activate Steps SL?
+input bool SL_Steps_activ    = false;  // Activate Steps SL?
 input double SL_Steps_Size   = 15;    // Steps SL: Size of one Step
 input double SL_Steps_Val    = 5;     // Steps SL: Triggerdistance above one Stepborder
 
@@ -62,6 +62,7 @@ input bool FollowUp_activ    = false; // Activate FollowUp Trade?
 extern int FollowUpExpiry    = 1800;  // FollowUp Order Expiry Time
 
 input int MaxRetry           = 10;   // OrderSend/OrderModify max. Retry
+input int PipCorrection      = 1;    // Correction faktor for calculation Pips from Price
 
 //--- Global variables
 
@@ -79,6 +80,7 @@ input int MaxRetry           = 10;   // OrderSend/OrderModify max. Retry
 //+------------------------------------------------------------------+
 int OnInit() {
   debugLevel(Debug);
+  pipCorrection(PipCorrection);
   ExitStrategies_Init();
   if (FollowUpExpiry < 600) debug(1, "FollowUpExpiry must be >= 600");
   FollowUpExpiry = fmax(600, FollowUpExpiry);
