@@ -9,7 +9,7 @@
 #property strict
 
 // maximum acceptable distance to original signal
-input double MaxGoodSlippage = 5;
+input double MaxGoodSlippage = 100;
 input double MaxBadSlippage = 5;
 input int MaxSignalAge = 180;
 extern int SignalExpiration = 3600;
@@ -31,6 +31,7 @@ uchar sep = ';';
 int OnInit() {
   if (SignalExpiration < 600) debug(1, "SignalExpiration must be >= 600");
   SignalExpiration = fmax(600, SignalExpiration);
+  debugLevel(3);
   return(INIT_SUCCEEDED);
 }
   
@@ -89,12 +90,17 @@ void OnTick() {
       long signalage = TimeLocal() - signaltimestamp_epoch;
       
       if (signalage > MaxSignalAge) {
-        Print("Signal is ", signalage, " seconds old - ignoring");
+        debug(3, StringConcatenate("Signal is ", signalage, " seconds old - ignoring"));
+        debugLevel(2);
         return;
       }
 
       // signal has already been processed, ignore
-      if (LastProcessedSignal == signaltimestamp_epoch) return;
+      if (LastProcessedSignal == signaltimestamp_epoch) {
+        debug(3, StringConcatenate("Signal is ", signalage, " has already been processed ", signaltimestamp_epoch));
+        debugLevel(2);
+        return;
+      }
    
       // all checks OK, let's mark this signal as processed
       // perform sanity checks
@@ -113,7 +119,7 @@ void OnTick() {
         ExecuteType = OP_BUY;
         Expiration = 0;
         if ((MaxGoodSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxBadSlippage)) {
-          Print("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice);
+          debug(3, StringConcatenate("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice));
           ExecuteType = OP_BUYLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
         }
@@ -129,7 +135,7 @@ void OnTick() {
         ExecuteType = OP_SELL;
         Expiration = 0;
         if ((MaxBadSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxGoodSlippage)) {
-          Print("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice);
+          debug(3, StringConcatenate("Ignoring signal, current price ", Price, " has moved too far away from Signal price", SignalPrice));
           ExecuteType = OP_SELLLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
         }
@@ -139,6 +145,7 @@ void OnTick() {
         if (SignalTP < Price - (DefaultTP + 10)) SignalTP = Price - DefaultTP;
         OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
       }
+      debugLevel(3);
     }
   }   
 }
