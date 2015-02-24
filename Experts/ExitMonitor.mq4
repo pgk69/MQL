@@ -105,7 +105,7 @@ void OnTick() {
   bool rc;
 
   // Bearbeitung aller offenen Trades
-  debug(4, StringConcatenate("Read Orderbook (Total of all Symbols: ",OrdersTotal(),")"));
+  debug(4, "Read Orderbook (Total of all Symbols: " + OrdersTotal() + ")");
   for (int i=0; i<OrdersTotal(); i++) {
     if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES) == false) continue; // Only valid Tickets are processed
     if ((OrderType() > OP_SELL))                             continue; // Only OP_BUY or OP_SELL Tickets are processed
@@ -132,26 +132,28 @@ void OnTick() {
     double SLStepsDist = calcPips(Percent, SL_Steps_Val);
   
     // Caluculate new TP Value
-    double TP = TakeProfit(myOrderTakeProfit, TPPips, TPTrailPips, Correction);
+    string TPMessage = "";
+    double TP = TakeProfit(TPMessage, myOrderTakeProfit, TPPips, TPTrailPips, Correction);
 
     // Calculate new SL Value
-    double SL = StopLoss(myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, TimeFrame, BarCount, TimeFrameFaktor, SLStepsPips, SLStepsDist, myTicket, FollowUpExpiry);
+    string SLMessage = "";
+    double SL = StopLoss(SLMessage, myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, TimeFrame, BarCount, TimeFrameFaktor, SLStepsPips, SLStepsDist);
    
     if (SL != myOrderStopLoss || TP != myOrderTakeProfit) {
       if (debugLevel() >= 1) {
         string message = "";
-        if (TP != myOrderTakeProfit) message = StringConcatenate(message, " TP:", myOrderTakeProfit, "->", TP, " ");
-        if (SL != myOrderStopLoss)   message = StringConcatenate(message, " SL:", myOrderStopLoss, "->", SL);
-        // if (SL != myOrderStopLoss)   message = StringConcatenate(message, " (Trail:", tSL, " N-Bar:", bSL, "/", BarCount, ")");
-        if (Correction != 1)         message = StringConcatenate(message, " Corrections determined as: ", Correction);
-        debug(1, StringConcatenate("new TP/SL: ", message));
+        if (TP != myOrderTakeProfit) message = message + " new " + TPMessage + "TP:" + myOrderTakeProfit + "->" + TP + " ";
+        if (SL != myOrderStopLoss)   message = message + " new " + SLMessage + "SL:" + myOrderStopLoss + "->" + SL;
+        // if (SL != myOrderStopLoss)   message = message + " (Trail:" + tSL + " N-Bar:" + bSL + "/" + BarCount + ")";
+        if (Correction != 1)         message = message + " Corrections determined as: " + Correction;
+        debug(1, message);
         if (debugLevel() >= 2) {
-          if (TP_Val != TPPips)             debug(1, StringConcatenate("TP Pips changed from ", TP_Val, " to ", TPPips));
-          if (TP_Trail_Val != TPTrailPips)  debug(1, StringConcatenate("TP trailing Pips changed from ", TP_Trail_Val, " to ", TPTrailPips));
-          if (SL_Val != SLPips)             debug(1, StringConcatenate("SL Pips changed from ", SL_Val, " to ", SLPips));
-          if (SL_Trail_Val != SLTrailPips)  debug(1, StringConcatenate("SL trailing Pips changed from ", SL_Trail_Val, " to ", SLTrailPips));
-          if (SL_Steps_Size != SLStepsPips) debug(1, StringConcatenate("SL Steps Size (Pips) changed from ", SL_Steps_Size, " to ", SLStepsPips));
-          if (SL_Steps_Val != SLStepsDist)  debug(1, StringConcatenate("SL Steps Distance (Pips) changed from ", SL_Steps_Val, " to ", SLStepsDist));
+          if (TP_Val        != TPPips)      debug(2, "TP Pips changed from "                  + TP_Val        + " to " + TPPips);
+          if (TP_Trail_Val  != TPTrailPips) debug(2, "TP trailing Pips changed from "         + TP_Trail_Val  + " to " + TPTrailPips);
+          if (SL_Val        != SLPips)      debug(2, "SL Pips changed from "                  + SL_Val        + " to " + SLPips);
+          if (SL_Trail_Val  != SLTrailPips) debug(2, "SL trailing Pips changed from "         + SL_Trail_Val  + " to " + SLTrailPips);
+          if (SL_Steps_Size != SLStepsPips) debug(2, "SL Steps Size (Pips) changed from "     + SL_Steps_Size + " to " + SLStepsPips);
+          if (SL_Steps_Val  != SLStepsDist) debug(2, "SL Steps Distance (Pips) changed from " + SL_Steps_Val  + " to " + SLStepsDist);
         }
       }
       Retry  = 0;
@@ -165,20 +167,20 @@ void OnTick() {
         if (OrderType() == OP_BUY) {
           if (tick.bid < SL) {
             rc = OrderClose(myTicket, myOrderLots, tick.bid, 3, clrNONE);
-            executedOrder = StringConcatenate("OrderClose (", myTicket, ") rc: ", rc);
+            executedOrder = "OrderClose (" + myTicket + ") rc: " + rc;
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = StringConcatenate("OrderModify (", myTicket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
+            executedOrder = "OrderModify (" + myTicket + ", 0, " + SL + ", " + TP + ", 0, CLR_NONE) TP/SL set: " + rc;
             if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         if (OrderType() == OP_SELL) {
           if (tick.ask > SL) {
             rc = OrderClose(myTicket, myOrderLots, tick.ask, 3, clrNONE);
-            executedOrder = StringConcatenate("OrderClose (", myTicket, ") rc: ", rc);
+            executedOrder = "OrderClose (" + myTicket + ") rc: " + rc;
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = StringConcatenate("OrderModify (", myTicket, ", 0, ", SL, ", ", TP, ", 0, CLR_NONE) TP/SL set: ", rc);
+            executedOrder = "OrderModify (" + myTicket + ", 0, " + SL + ", " + TP + ", 0, CLR_NONE) TP/SL set: " + rc;
             if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
@@ -186,9 +188,9 @@ void OnTick() {
       }
       if (!rc) {
         rcint = GetLastError();
-        debug(1, StringConcatenate(executedOrder, " ", rc, " ", rcint, " ", Retry, ": ", ErrorDescription(rcint)));
+        debug(1, executedOrder + " " + rc + " " + rcint + " " + Retry + ": " + ErrorDescription(rcint));
       } else {
-        debug(3, StringConcatenate(executedOrder, "  Retry: ", Retry));
+        debug(3, executedOrder + "  Retry: " + Retry);
       }
     }
   }

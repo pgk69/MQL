@@ -28,8 +28,8 @@
 #import "ExitStrategies.ex4"
   void ExitStrategies_Init();
   int ExitStrategieStatus(string strategie, bool On);
-  double TakeProfit(double TP, double TPPips, double TPTrailPips, double Correction);
-  double StopLoss(double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, int timeframe, int barCount, double timeframeFaktor, double SLStepsPips, double SLStepsDist, int ticketID, int expirys);
+  double TakeProfit(string& message, double TP, double TPPips, double TPTrailPips, double Correction);
+  double StopLoss(string& message, double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, int timeframe, int barCount, double timeframeFaktor, double SLStepsPips, double SLStepsDist);
   string initial_TP(double& TP, double TPPips);
   string initial_SL(double& SL, double SLPips);
   string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correction);

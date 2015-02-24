@@ -93,7 +93,7 @@ double calcPips(double Percent, double Value) export {
   } else {
     newPips = PipCorrection*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Value;
   }
-  // debug(4, StringConcatenate("Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE)));
+  // debug(4, "Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE));
   return(newPips);
 }
 
@@ -106,9 +106,9 @@ double NormRound(double Value) export {
   int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
   double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
 
-  debug(4, StringConcatenate("Normalizing ", Value, " OrderTradeTickSize * round(Value/OrderTradeTickSize): ", OrderTradeTickSize * round(Value/OrderTradeTickSize), "  NormalizeDouble(Value, OrderDigits): ", NormalizeDouble(Value, OrderDigits)));
-  Value = OrderTradeTickSize * round(Value/OrderTradeTickSize);
-  Value = NormalizeDouble(Value, OrderDigits);
+  double newValue = OrderTradeTickSize * round(Value/OrderTradeTickSize);
+  debug(4, "Normalizing " + Value + " OrderTradeTickSize * round(Value/OrderTradeTickSize): " + newValue + "  NormalizeDouble(Value, OrderDigits): " + NormalizeDouble(Value, OrderDigits));
+  newValue = NormalizeDouble(newValue, OrderDigits);
 
   return(Value);
 }

@@ -94,14 +94,14 @@ void OnTick() {
       long signalage = TimeLocal() - signaltimestamp_epoch;
       
       if (signalage > MaxSignalAge) {
-        debug(3, StringConcatenate("Signal is ", signalage, " seconds old - ignoring"));
+        debug(3, "Signal is " + signalage + " seconds old - ignoring");
         debugLevel(fmax(2, Debug));
         return;
       }
 
       // signal has already been processed, ignore
       if (LastProcessedSignal == signaltimestamp_epoch) {
-        debug(3, StringConcatenate("Signal is ", signalage, " has already been processed ", signaltimestamp_epoch));
+        debug(3, "Signal is " + signalage + " has already been processed " + signaltimestamp_epoch);
         debugLevel(fmax(2, Debug));
         return;
       }
@@ -123,7 +123,7 @@ void OnTick() {
         ExecuteType = OP_BUY;
         Expiration = 0;
         if ((MaxGoodSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxBadSlippage)) {
-          debug(3, StringConcatenate("Ignoring signal, current price ", Price, " has moved too far away from Signal price ", SignalPrice, " (", MaxBadSlippage, "<", fmod(SignalPrice-Price, 100), " || ", fmod(Price-SignalPrice, 100),  ">", MaxGoodSlippage, ")"));
+          debug(3, "Ignoring signal, current price " + Price + " has moved too far away from Signal price " + SignalPrice + " (" + MaxBadSlippage + "<" + fmod(SignalPrice-Price, 100) + " || " + fmod(Price-SignalPrice, 100) +  ">" + MaxGoodSlippage + ")");
           ExecuteType = OP_BUYLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
         }
@@ -133,7 +133,7 @@ void OnTick() {
         if (SignalTP > Price + (DefaultTP + 10)) SignalTP = Price + DefaultTP;
         int Ticket = 0;
         if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
-        debug(3, StringConcatenate(Ticket, ": OrderSend(", Symbol(), ", ", ExecuteType, ", ", OrderSize, ", ", Price, ", ", 3, ", ", SignalSL, ", ", SignalTP, ", ", "Start Trading", ", ", MagicNumber, ", ", Expiration, ", ", clrNONE, ")"));
+        debug(3, Ticket + ": OrderSend(" + Symbol() + ", " + ExecuteType + ", " + OrderSize + ", " + Price + ", 3, " + SignalSL + ", " + SignalTP + ", Start Trading, " + MagicNumber + ", " + Expiration + ", " + clrNONE + ")");
       }
 
       if (StringCompare("DAX Short", signal[0]) == 0) {
@@ -141,7 +141,7 @@ void OnTick() {
         ExecuteType = OP_SELL;
         Expiration = 0;
         if ((MaxBadSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxGoodSlippage)) {
-          debug(3, StringConcatenate("Ignoring signal, current price ", Price, " has moved too far away from Signal price ", SignalPrice, " (", MaxBadSlippage, "<", fmod(SignalPrice-Price, 100), " || ", fmod(Price-SignalPrice, 100),  ">", MaxGoodSlippage, ")"));
+          debug(3, "Ignoring signal, current price " + Price + " has moved too far away from Signal price " + SignalPrice + " (" + MaxBadSlippage + "<" + fmod(SignalPrice-Price, 100) + " || " + fmod(Price-SignalPrice, 100) +  ">" + MaxGoodSlippage + ")");
           ExecuteType = OP_SELLLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
         }
@@ -151,7 +151,7 @@ void OnTick() {
         if (SignalTP < Price - (DefaultTP + 10)) SignalTP = Price - DefaultTP;
         int Ticket = 0;
         if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
-        debug(3, StringConcatenate(Ticket, ": OrderSend(", Symbol(), ", ", ExecuteType, ", ", OrderSize, ", ", Price, ", ", 3, ", ", SignalSL, ", ", SignalTP, ", ", "Start Trading", ", ", MagicNumber, ", ", Expiration, ", ", clrNONE, ")"));
+        debug(3, Ticket + ": OrderSend(" + Symbol() + ", " + ExecuteType + ", " + OrderSize + ", " + Price + ", 3, " + SignalSL + ", " + SignalTP + ", Start Trading, " + MagicNumber + ", " + Expiration + ", " + clrNONE + ")");
       }
       debugLevel(fmax(3, Debug));
     }
