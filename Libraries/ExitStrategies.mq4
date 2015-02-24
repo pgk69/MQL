@@ -47,7 +47,7 @@ int ExitStrategieStatus(string strategie, bool On) export {
     if (On == 1 || On == 0) strategy[idx] = On;
     rc = strategy[idx];
     string OnOff = rc ? "On" : "Off";
-    debug(1, "ExitStrategie " + strategie + " (" + idx + ") " + OnOff);
+    debug(1, "ExitStrategie " + strategie + " (" + i2s(idx) + ") " + OnOff);
   }
   return(rc);
 }
@@ -70,7 +70,7 @@ bool SL_active(double TPPips, double SLPips) {
   }
 
   bool SLActiv = (deltaTP > 0) || (deltaSL > 0);
-  debug(3, "SL Activation: " + SLActiv + " (DeltaTP: " + deltaTP + "  DeltaSL: " + deltaSL + ")");
+  debug(3, "SL Activation: " + i2s(SLActiv) + " (DeltaTP: " + d2s(deltaTP) + "  DeltaSL: " + d2s(deltaSL) + ")");
   
   return(SLActiv);
 }
@@ -117,7 +117,7 @@ double StopLoss(string& message, double SL, double TPPips, double SLPips, double
     if (strategy[3]) {
       message1 = trailing_SL(SL1, SLPips, SLTrailPips, Correction);
       newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL1): fmin(newSL, SL1);
-      debug(3, "Trailing SL newSL: " + newSL);
+      debug(3, "Trailing SL newSL: " + d2s(newSL));
     }
 
     // ID 4: N-Bar SL
@@ -126,7 +126,7 @@ double StopLoss(string& message, double SL, double TPPips, double SLPips, double
     if (strategy[4]) {
       message2 = N_Bar_SL(SL2, SLPips, timeframe, barCount, timeframeFaktor);
       newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL2): fmin(newSL, SL2);
-      debug(3, "N-Bar newSL: " + newSL);
+      debug(3, "N-Bar newSL: " + d2s(newSL));
     }
 
     // ID 5: Steps SL
@@ -135,7 +135,7 @@ double StopLoss(string& message, double SL, double TPPips, double SLPips, double
     if (strategy[5]) {
       message3 = Steps_SL(SL3, SLStepsPips, SLStepsDist);
       newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL3): fmin(newSL, SL3);
-      debug(3, "Steps newSL: " + newSL);
+      debug(3, "Steps newSL: " + d2s(newSL));
     }
  
     // ID 5: D-Steps SL
@@ -193,7 +193,7 @@ string initial_TP(double& TP, double TPPips) export {
     
         if (newTP != TP) {
           string longShort = OrderType() ? "short" : "long";
-          message = "initial TakeProfit " + longShort + " Order (" + OrderTicket() + "): Buyprice: " + OrderOpenPrice() + " Bid/Ask: " + tick.bid + "/" + tick.ask + " initial: " + newTP;
+          message = "initial TakeProfit " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " initial: " + d2s(newTP);
           debug(3, message);
           TP = newTP;
         }
@@ -226,7 +226,7 @@ string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correct
     
         if (newTP != TP) {
           string longShort = OrderType() ? "short" : "long";
-          message = "trailing TakeProfit " + longShort + " Order (" + OrderTicket() + "): Buyprice: " + OrderOpenPrice() + " Bid/Ask: " + tick.bid + "/" + tick.ask + " old: " + TP + " new: " + newTP;
+          message = "trailing TakeProfit " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(TP) + " new: " + d2s(newTP);
           debug(3, message);
           TP = newTP;
         }
@@ -258,7 +258,7 @@ string initial_SL(double& SL, double SLPips) export {
         }
         if (newSL != SL) {
           string longShort = OrderType() ? "short" : "long";
-          message = "initial StopLoss " + longShort + " Order (" + OrderTicket() + "): Buyprice: " + OrderOpenPrice() + " Bid/Ask: " + tick.bid + "/" + tick.ask + " initial: " + newSL;
+          message = "initial StopLoss " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " initial: " + d2s(newSL);
           debug(3, message);
           SL = newSL;
         }
@@ -290,7 +290,7 @@ string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correct
         }
         if (newSL != SL) {
           string longShort = OrderType() ? "short" : "long";
-          message = "trailing StopLoss " + longShort + " Order (" + OrderTicket() + "): Buyprice: " + OrderOpenPrice() + " Bid/Ask: " + tick.bid + "/" + tick.ask + " old: " + SL + " new: " + newSL;
+          message = "trailing StopLoss " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(SL) + " new: " + d2s(newSL);
           debug(3, message);
           SL = newSL;
         }
@@ -335,18 +335,18 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
           int i = barCount;
           while (i>0) Min_N_Bar = fmin(Min_N_Bar, iLow(OrderSymbol(), timeframe, i--));
           newSL = fmax(SL, Min_N_Bar);
-          debug(4, "fmax(SL=" + SL + " + Min_N_Bar=" + Min_N_Bar + ")=" + newSL);
+          debug(4, "fmax(SL=" + d2s(SL) + " + Min_N_Bar=" + d2s(Min_N_Bar) + ")=" + d2s(newSL));
         }
         if (OrderType() == OP_SELL) {
           double Max_N_Bar = -1000000000;
           int i = barCount;
           while (i>0) Max_N_Bar = fmax(Max_N_Bar, iHigh(OrderSymbol(), timeframe, i--));
           newSL = fmin(SL, Max_N_Bar);
-          debug(4, "fmin(SL=" + SL + ", Max_N_Bar=" + Max_N_Bar + ")=" + newSL);
+          debug(4, "fmin(SL=" + d2s(SL) + ", Max_N_Bar=" + d2s(Max_N_Bar) + ")=" + d2s(newSL));
         }
         if (newSL != SL) {
           string longShort = OrderType() ? "short" : "long";
-          message = barCount + "-Bar StopLoss (Periode: " + timeframe + "/" + barTime + "/" + timeframeFaktor + ") " + longShort + " Order (" + OrderTicket() + "): Buyprice: " + OrderOpenPrice() + " Bid/Ask: " + tick.bid + "/" + tick.ask + " old: " + SL + " new: " + newSL;
+          message = i2s(barCount) + "-Bar StopLoss (Periode: " + i2s(timeframe) + "/" + d2s(barTime) + "/" + d2s(timeframeFaktor) + ") " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(SL) + " new: " + d2s(newSL);
           debug(3, message);
           SL = newSL;
         }
@@ -380,7 +380,7 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
         }
         if (newSL != SL) {
           string longShort = OrderType() ? "short" : "long";
-          message = "Steps StopLoss " + longShort + " Order (" + OrderTicket() + "): Buyprice: " + OrderOpenPrice() + " Bid/Ask: " + tick.bid + "/" + tick.ask + " old: " + SL + " new: " + newSL;
+          message = "Steps StopLoss " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(SL) + " new: " + d2s(newSL);
           debug(3, message);
           SL = newSL;
         }
@@ -406,8 +406,8 @@ int followUpOrder(int ticketID, int expiry) export {
       double myPrice    = OrderOpenPrice();
       int    myMagic    = OrderMagicNumber();
       int    limit_type = (OrderType() == OP_SELL) ? OP_SELLLIMIT : OP_BUYLIMIT;
-      string comment    = "Ref:" + ticketID;
-      string originalTrade = "followUpOrder: Original Order: TicketID: " + ticketID + "  Symbol: " + mySymbol + "  Lots: " + myLots + "  Price: " + myPrice + "  Magic: " + myMagic + "  Type: " + limit_type + "  Comment: " + comment; 
+      string comment    = "Ref:" + i2s(ticketID);
+      string originalTrade = "followUpOrder: Original Order: TicketID: " + i2s(ticketID) + "  Symbol: " + mySymbol + "  Lots: " + d2s(myLots) + "  Price: " + d2s(myPrice) + "  Magic: " + i2s(myMagic) + "  Type: " + i2s(limit_type) + "  Comment: " + comment; 
       myLots = myLots/2;
       bool found = false;
       for (int i=0; i<OrdersTotal(); i++) {
@@ -417,10 +417,9 @@ int followUpOrder(int ticketID, int expiry) export {
         if (found) break;
       }
       if (!found) {
-        expiry = TimeCurrent() + expiry;
-        rc = OrderSend(mySymbol, limit_type, myLots, myPrice, 3, 0, 0, comment, myMagic, expiry, clrNONE);
+        rc = OrderSend(mySymbol, limit_type, myLots, myPrice, 3, 0, 0, comment, myMagic, TimeCurrent() + expiry, clrNONE);
         debug(3, originalTrade);
-        debug(2, "followUpOrder: OrderSend (" + mySymbol + ", " + limit_type + ", " + myLots + ", " + myPrice + ", 3, 0, 0, " + comment + ", " + myMagic + ", " + expiry + ", CLR_NONE): " + rc);
+        debug(2, "followUpOrder: OrderSend (" + mySymbol + ", " + i2s(limit_type) + ", " + d2s(myLots) + ", " + d2s(myPrice) + ", 3, 0, 0, " + comment + ", " + i2s(myMagic) + ", " + d2s(TimeCurrent() + expiry) + ", CLR_NONE): " + i2s(rc));
       }
     }
   }

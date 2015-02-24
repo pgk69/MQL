@@ -105,7 +105,7 @@ void OnTick() {
   bool rc;
 
   // Bearbeitung aller offenen Trades
-  debug(4, "Read Orderbook (Total of all Symbols: " + OrdersTotal() + ")");
+  debug(4, "Read Orderbook (Total of all Symbols: " + i2s(OrdersTotal()) + ")");
   for (int i=0; i<OrdersTotal(); i++) {
     if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES) == false) continue; // Only valid Tickets are processed
     if ((OrderType() > OP_SELL))                             continue; // Only OP_BUY or OP_SELL Tickets are processed
@@ -142,18 +142,18 @@ void OnTick() {
     if (SL != myOrderStopLoss || TP != myOrderTakeProfit) {
       if (debugLevel() >= 1) {
         string message = "";
-        if (TP != myOrderTakeProfit) message = message + " new " + TPMessage + "TP:" + myOrderTakeProfit + "->" + TP + " ";
-        if (SL != myOrderStopLoss)   message = message + " new " + SLMessage + "SL:" + myOrderStopLoss + "->" + SL;
+        if (TP != myOrderTakeProfit) message = message + " new " + TPMessage + "TP:" + d2s(myOrderTakeProfit) + "->" + d2s(TP) + " ";
+        if (SL != myOrderStopLoss)   message = message + " new " + SLMessage + "SL:" + d2s(myOrderStopLoss) + "->" + d2s(SL);
         // if (SL != myOrderStopLoss)   message = message + " (Trail:" + tSL + " N-Bar:" + bSL + "/" + BarCount + ")";
-        if (Correction != 1)         message = message + " Corrections determined as: " + Correction;
+        if (Correction != 1)         message = message + " Corrections determined as: " + d2s(Correction);
         debug(1, message);
         if (debugLevel() >= 2) {
-          if (TP_Val        != TPPips)      debug(2, "TP Pips changed from "                  + TP_Val        + " to " + TPPips);
-          if (TP_Trail_Val  != TPTrailPips) debug(2, "TP trailing Pips changed from "         + TP_Trail_Val  + " to " + TPTrailPips);
-          if (SL_Val        != SLPips)      debug(2, "SL Pips changed from "                  + SL_Val        + " to " + SLPips);
-          if (SL_Trail_Val  != SLTrailPips) debug(2, "SL trailing Pips changed from "         + SL_Trail_Val  + " to " + SLTrailPips);
-          if (SL_Steps_Size != SLStepsPips) debug(2, "SL Steps Size (Pips) changed from "     + SL_Steps_Size + " to " + SLStepsPips);
-          if (SL_Steps_Val  != SLStepsDist) debug(2, "SL Steps Distance (Pips) changed from " + SL_Steps_Val  + " to " + SLStepsDist);
+          if (TP_Val        != TPPips)      debug(2, "TP Pips changed from "                  + d2s(TP_Val)        + " to " + d2s(TPPips));
+          if (TP_Trail_Val  != TPTrailPips) debug(2, "TP trailing Pips changed from "         + d2s(TP_Trail_Val)  + " to " + d2s(TPTrailPips));
+          if (SL_Val        != SLPips)      debug(2, "SL Pips changed from "                  + d2s(SL_Val)        + " to " + d2s(SLPips));
+          if (SL_Trail_Val  != SLTrailPips) debug(2, "SL trailing Pips changed from "         + d2s(SL_Trail_Val)  + " to " + d2s(SLTrailPips));
+          if (SL_Steps_Size != SLStepsPips) debug(2, "SL Steps Size (Pips) changed from "     + d2s(SL_Steps_Size) + " to " + d2s(SLStepsPips));
+          if (SL_Steps_Val  != SLStepsDist) debug(2, "SL Steps Distance (Pips) changed from " + d2s(SL_Steps_Val)  + " to " + d2s(SLStepsDist));
         }
       }
       Retry  = 0;
@@ -167,20 +167,20 @@ void OnTick() {
         if (OrderType() == OP_BUY) {
           if (tick.bid < SL) {
             rc = OrderClose(myTicket, myOrderLots, tick.bid, 3, clrNONE);
-            executedOrder = "OrderClose (" + myTicket + ") rc: " + rc;
+            executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = "OrderModify (" + myTicket + ", 0, " + SL + ", " + TP + ", 0, CLR_NONE) TP/SL set: " + rc;
+            executedOrder = "OrderModify (" + i2s(myTicket) + ", 0, " + d2s(SL) + ", " + d2s(TP) + ", 0, CLR_NONE) TP/SL set: " + i2s(rc);
             if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         if (OrderType() == OP_SELL) {
           if (tick.ask > SL) {
             rc = OrderClose(myTicket, myOrderLots, tick.ask, 3, clrNONE);
-            executedOrder = "OrderClose (" + myTicket + ") rc: " + rc;
+            executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
-            executedOrder = "OrderModify (" + myTicket + ", 0, " + SL + ", " + TP + ", 0, CLR_NONE) TP/SL set: " + rc;
+            executedOrder = "OrderModify (" + i2s(myTicket) + ", 0, " + d2s(SL) + ", " + d2s(TP) + ", 0, CLR_NONE) TP/SL set: " + i2s(rc);
             if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
@@ -188,9 +188,9 @@ void OnTick() {
       }
       if (!rc) {
         rcint = GetLastError();
-        debug(1, executedOrder + " " + rc + " " + rcint + " " + Retry + ": " + ErrorDescription(rcint));
+        debug(1, executedOrder + " " + i2s(rc) + " " + i2s(rcint) + " " + i2s(Retry) + ": " + ErrorDescription(rcint));
       } else {
-        debug(3, executedOrder + "  Retry: " + Retry);
+        debug(3, executedOrder + "  Retry: " + i2s(Retry));
       }
     }
   }

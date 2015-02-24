@@ -66,6 +66,30 @@ int pipCorrection(int level=-1) export {
 
 
 //+------------------------------------------------------------------+
+//| convert double to string funktion                                |
+//+------------------------------------------------------------------+
+string d2s(double number) export {
+  return(DoubleToStr(number));
+}
+
+
+//+------------------------------------------------------------------+
+//| convert integer to string funktion                               |
+//+------------------------------------------------------------------+
+string i2s(int number) export {
+  return(IntegerToString(number));
+}
+
+
+//+------------------------------------------------------------------+
+//| convert date to string funktion                                  |
+//+------------------------------------------------------------------+
+string t2s(datetime number) export {
+  return(TimeToStr(number));
+}
+
+
+//+------------------------------------------------------------------+
 //| Calculate factor                                                 |
 //+------------------------------------------------------------------+
 double indFaktor() export {
@@ -107,7 +131,7 @@ double NormRound(double Value) export {
   double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
 
   double newValue = OrderTradeTickSize * round(Value/OrderTradeTickSize);
-  debug(4, "Normalizing " + Value + " OrderTradeTickSize * round(Value/OrderTradeTickSize): " + newValue + "  NormalizeDouble(Value, OrderDigits): " + NormalizeDouble(Value, OrderDigits));
+  debug(4, "Normalizing " + d2s(Value) + " OrderTradeTickSize * round(Value/OrderTradeTickSize): " + d2s(newValue) + "  NormalizeDouble(Value, OrderDigits): " + d2s(NormalizeDouble(Value, OrderDigits)));
   newValue = NormalizeDouble(newValue, OrderDigits);
 
   return(Value);

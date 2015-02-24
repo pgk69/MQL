@@ -30,6 +30,9 @@
   int debugLevel(int level=-1);
   void debug(int level, string message);
   int pipCorrection(int level=-1);
+  string d2s(double number);
+  string i2s(int number);
+  string t2s(datetime number);
   double indFaktor();
   double calcPips(double Percent, double Value);
   double NormRound(double Value);
