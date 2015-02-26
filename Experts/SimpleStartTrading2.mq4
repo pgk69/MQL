@@ -94,14 +94,14 @@ void OnTick() {
       long signalage = TimeLocal() - signaltimestamp_epoch;
       
       if (signalage > MaxSignalAge) {
-        debug(3, "Signal is " + signalage + " seconds old - ignoring");
+        debug(3, "Signal is " + d2s(signalage) + " seconds old - ignoring");
         debugLevel(fmax(2, Debug));
         return;
       }
 
       // signal has already been processed, ignore
       if (LastProcessedSignal == signaltimestamp_epoch) {
-        debug(3, "Signal is " + signalage + " has already been processed " + signaltimestamp_epoch);
+        debug(3, "Signal is " + d2s(signalage) + " has already been processed " + t2s(signaltimestamp_epoch));
         debugLevel(fmax(2, Debug));
         return;
       }
@@ -123,7 +123,7 @@ void OnTick() {
         ExecuteType = OP_BUY;
         Expiration = 0;
         if ((MaxGoodSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxBadSlippage)) {
-          debug(3, "Ignoring signal, current price " + Price + " has moved too far away from Signal price " + SignalPrice + " (" + MaxBadSlippage + "<" + fmod(SignalPrice-Price, 100) + " || " + fmod(Price-SignalPrice, 100) +  ">" + MaxGoodSlippage + ")");
+          debug(3, "Ignoring signal, current price " + d2s(Price) + " has moved too far away from Signal price " + d2s(SignalPrice) + " (" + d2s(MaxBadSlippage) + "<" + d2s(fmod(SignalPrice-Price, 100)) + " || " + d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxGoodSlippage) + ")");
           ExecuteType = OP_BUYLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
         }
@@ -133,7 +133,7 @@ void OnTick() {
         if (SignalTP > Price + (DefaultTP + 10)) SignalTP = Price + DefaultTP;
         int Ticket = 0;
         if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
-        debug(3, Ticket + ": OrderSend(" + Symbol() + ", " + ExecuteType + ", " + OrderSize + ", " + Price + ", 3, " + SignalSL + ", " + SignalTP + ", Start Trading, " + MagicNumber + ", " + Expiration + ", " + clrNONE + ")");
+        debug(3, i2s(Ticket) + ": OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
       }
 
       if (StringCompare("DAX Short", signal[0]) == 0) {
@@ -141,7 +141,7 @@ void OnTick() {
         ExecuteType = OP_SELL;
         Expiration = 0;
         if ((MaxBadSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxGoodSlippage)) {
-          debug(3, "Ignoring signal, current price " + Price + " has moved too far away from Signal price " + SignalPrice + " (" + MaxBadSlippage + "<" + fmod(SignalPrice-Price, 100) + " || " + fmod(Price-SignalPrice, 100) +  ">" + MaxGoodSlippage + ")");
+          debug(3, "Ignoring signal, current price " + d2s(Price) + " has moved too far away from Signal price " + d2s(SignalPrice) + " (" + d2s(MaxBadSlippage) + "<" + d2s(fmod(SignalPrice-Price, 100)) + " || " + d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxGoodSlippage) + ")");
           ExecuteType = OP_SELLLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
         }
@@ -151,7 +151,7 @@ void OnTick() {
         if (SignalTP < Price - (DefaultTP + 10)) SignalTP = Price - DefaultTP;
         int Ticket = 0;
         if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
-        debug(3, Ticket + ": OrderSend(" + Symbol() + ", " + ExecuteType + ", " + OrderSize + ", " + Price + ", 3, " + SignalSL + ", " + SignalTP + ", Start Trading, " + MagicNumber + ", " + Expiration + ", " + clrNONE + ")");
+        debug(3, i2s(Ticket) + ": OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
       }
       debugLevel(fmax(3, Debug));
     }
