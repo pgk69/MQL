@@ -9,8 +9,11 @@
 #property version   "1.00"
 #property strict
 
+// defines
+#define VERSION     "1.0"
+
 //--- input parameters
-extern int DebugLevel           = 2;  // Debug Level
+extern int DebugLevel    = 2;  // Debug Level
 // Level 0: Keine Debugausgaben
 // Level 1: Nur Orderaenderungen werden protokolliert
 // Level 2: Alle Aenderungen werden protokolliert
@@ -18,10 +21,14 @@ extern int DebugLevel           = 2;  // Debug Level
 // Level 4: Programmschritte und Datenstrukturen werden im Detail 
 //          protokolliert
 
-extern int PipCorrection            = 1;
-// extern int PipCorrection            = 10;
+extern int PipCorrection = 1;
+// extern int PipCorrection = 10;
 
 //--- Global variables
+//double hashKeyIndex[101];
+// MAXIDX = Arraysize-1, da Index ab 0 zaehlt
+int MAXIDX            = 2;
+double hashKeyIndex[3];
 
 //+------------------------------------------------------------------+
 //| My function                                                      |
@@ -31,6 +38,15 @@ extern int PipCorrection            = 1;
 //    return(value+value2);
 //   }
 //+------------------------------------------------------------------+
+
+
+//+------------------------------------------------------------------+
+//| ToolBox initialization function                                  |
+//+------------------------------------------------------------------+
+void ToolBox_Init() export {
+  debug(1, "ToolBox Version: " + VERSION);
+  hashInitialize("hashKeyIndex", hashKeyIndex, 0);
+}
 
 
 //+------------------------------------------------------------------+
@@ -51,6 +67,106 @@ int debugLevel(int level=-1) export {
     DebugLevel = level;
   }
   return(DebugLevel);
+}
+
+
+//+------------------------------------------------------------------+
+//| dumpHash funktion                                                |
+//+------------------------------------------------------------------+
+void dumpHash(string name, double &array[]) export {
+  int idx = 0;
+  while (idx <= MAXIDX) {
+    string msg = "";
+    if (name != "HashKeyIndex") msg = name + ": ";
+    msg = msg + "HashKeyIndex: "+i2s(idx) + ": " + i2s(hashTicket(idx)) + ": ";
+    msg = msg + d2s(array[idx]);
+    debug(2, msg);
+    idx++;
+  }
+}
+
+
+//+------------------------------------------------------------------+
+//| ToolBox initialization function                                  |
+//+------------------------------------------------------------------+
+void hashInitialize(string name, double &array[], double initValue = 0) export {
+  int idx = 0;
+  while (idx <= MAXIDX ){
+    // Get Global Variable
+    double dummy;
+    string msg = "Init " + name + ": ";
+    msg = msg + "HashKeyIndex: "+i2s(idx) + ": " + i2s(hashTicket(idx)) + ": ";
+    msg = msg + "Vorher: " + d2s(array[idx]) + "  ";
+    if (GlobalVariableGet(name+i2s(idx), dummy)) {
+      array[idx] = dummy;
+      msg = msg + "Nachher(read): " + d2s(array[idx]);
+    } else {
+      array[idx] = initValue;
+      GlobalVariableSet(name+i2s(idx), array[idx]); 
+      msg = msg + "Nachher(init): " + d2s(array[idx]);
+    }
+    debug(2, msg);
+    idx++;
+  }
+}
+
+
+//+------------------------------------------------------------------+
+//| hashTicket funktion                                              |
+//+------------------------------------------------------------------+
+int hashTicket(int idx) export {
+  return((int)hashKeyIndex[idx]);
+}
+
+
+//+------------------------------------------------------------------+
+//| hash funktion                                                   |
+//+------------------------------------------------------------------+
+double hash(int ticket, string name, double &array[], double newValue = 0) export {
+  double value = 0;
+  int idx = 0;
+
+  // Search Ticket in HashKeyIndey
+  while ((idx <= MAXIDX) && (hashKeyIndex[idx] != ticket)) idx++;
+  debug(3, "Index Lookup: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx));
+  
+  if (newValue) {
+    // Set a new Value
+    if (idx <= MAXIDX) {
+      // Ticket found
+      // Set new value if it changed
+      if (newValue != array[idx]) {
+        debug(2, "Set new Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  old value " + d2s(array[idx]) + ", new value " + d2s(newValue));
+        array[idx] = newValue;
+        GlobalVariableSet(name+i2s(idx), array[idx]); 
+      }
+    } else {
+      // Ticket not found
+      // get a free hashKeyIndex
+      int searchidx = 0;
+      while ((searchidx <= MAXIDX) && 
+             (hashKeyIndex[searchidx] != 0) && 
+             (OrderSelect((int)hashKeyIndex[searchidx], SELECT_BY_TICKET, MODE_TRADES) == true)) searchidx++;
+      if (searchidx <= MAXIDX) {
+        // found a free hashKeyIndex and use it
+        debug(2, "Found new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(searchidx) + "  old HashKey Value " + d2s(hashKeyIndex[searchidx]) + "  old Array Value " + d2s(array[searchidx]));
+        hashKeyIndex[searchidx] = ticket;
+        GlobalVariableSet("hashKeyIndex"+i2s(searchidx), hashKeyIndex[searchidx]); 
+        array[searchidx] = newValue;
+        GlobalVariableSet(name+i2s(searchidx), array[searchidx]); 
+        value = newValue;
+      } else {
+        // did not found a free hashKeyIndex
+        debug(1, "Did not find new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  old value " + d2s(array[idx]) + ", new value " + d2s(newValue));
+        dumpHash("HashKeyIndex", hashKeyIndex);
+      }
+    }
+  } else {
+    // Request a Value
+    if (idx <= MAXIDX) value = array[idx];
+    debug(3, "Request Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  return Value: " + d2s(value));
+  }
+  return(value);
 }
 
 
@@ -127,7 +243,7 @@ double calcPips(double Percent, double Value) export {
 //+------------------------------------------------------------------+
 // rounds the argument to the nearest tick value
 double NormRound(double Value) export {
-  int    OrderDigits        = SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
+  int    OrderDigits        = (int)SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS);
   double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
 
   double newValue = OrderTradeTickSize * round(Value/OrderTradeTickSize);

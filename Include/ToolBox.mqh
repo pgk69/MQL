@@ -27,8 +27,13 @@
 #define __ToolBox_H__
 
 #import "ToolBox.ex4"
+  void ToolBox_Init();
   int debugLevel(int level=-1);
   void debug(int level, string message);
+  int hashTicket(int idx);
+  void hashInitialize(string name, double& array[], double initValue = 0);
+  void dumpHash(string name, double &array[]);
+  double hash(int ticket, string name, double& array[], double newValue = 0);
   int pipCorrection(int level=-1);
   string d2s(double number);
   string i2s(int number);
