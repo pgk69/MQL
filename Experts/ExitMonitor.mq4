@@ -65,6 +65,8 @@ input int MaxRetry           = 10;   // OrderSend/OrderModify max. Retry
 input int PipCorrection      = 1;    // Correction faktor for calculation Pips from Price
 
 //--- Global variables
+double tpValue[101];
+double slValue[101];
 
 //--- Includes
 //#include <stderror.mqh>
@@ -80,8 +82,9 @@ input int PipCorrection      = 1;    // Correction faktor for calculation Pips f
 //+------------------------------------------------------------------+
 int OnInit() {
   debugLevel(Debug);
-  pipCorrection(PipCorrection);
+  ToolBox_Init();
   ExitStrategies_Init();
+  pipCorrection(PipCorrection);
   if (FollowUpExpiry < 600) debug(1, "FollowUpExpiry must be >= 600");
   FollowUpExpiry = fmax(600, FollowUpExpiry);
   ExitStrategieStatus("Trailing",      SL_Trail_activ);
@@ -122,38 +125,43 @@ void OnTick() {
     double myOrderLots       = OrderLots();
     
     // Possibly determine an correctionfactor
-    double Correction = indFaktor();
+    double Correction  = indFaktor();
     // Calculate real Pips depending on the value given in precent or absolut
-    double TPPips = calcPips(Percent, TP_Val);
-    double SLPips = calcPips(Percent, SL_Val);
+    double TPPips      = calcPips(Percent, TP_Val);
+    double SLPips      = calcPips(Percent, SL_Val);
     double TPTrailPips = calcPips(Percent, TP_Trail_Val);
     double SLTrailPips = calcPips(Percent, SL_Trail_Val);
     double SLStepsPips = calcPips(Percent, SL_Steps_Size);
     double SLStepsDist = calcPips(Percent, SL_Steps_Val);
   
+    // Check whether trade is already known
+    checkTrade(myTicket, myOrderTakeProfit, myOrderStopLoss);
+  
     // Caluculate new TP Value
     string TPMessage = "";
-    double TP = TakeProfit(TPMessage, myOrderTakeProfit, TPPips, TPTrailPips, Correction);
+    double TP = TakeProfit(myTicket, TPMessage, myOrderTakeProfit, TPPips, TPTrailPips, Correction);
 
     // Calculate new SL Value
     string SLMessage = "";
-    double SL = StopLoss(SLMessage, myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, TimeFrame, BarCount, TimeFrameFaktor, SLStepsPips, SLStepsDist);
+    double SL = StopLoss(myTicket, SLMessage, myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, TimeFrame, BarCount, TimeFrameFaktor, SLStepsPips, SLStepsDist);
    
-    if (SL != myOrderStopLoss || TP != myOrderTakeProfit) {
+    bool newSL = (NormalizeDouble(SL-myOrderStopLoss, 5) == 0);   
+    bool newTP = (NormalizeDouble(TP-myOrderTakeProfit, 5) == 0);   
+    if (newSL || newTP) {
       if (debugLevel() >= 1) {
         string message = "";
-        if (TP != myOrderTakeProfit) message = message + " new " + TPMessage + "TP:" + d2s(myOrderTakeProfit) + "->" + d2s(TP) + " ";
-        if (SL != myOrderStopLoss)   message = message + " new " + SLMessage + "SL:" + d2s(myOrderStopLoss) + "->" + d2s(SL);
-        // if (SL != myOrderStopLoss)   message = message + " (Trail:" + tSL + " N-Bar:" + bSL + "/" + BarCount + ")";
-        if (Correction != 1)         message = message + " Corrections determined as: " + d2s(Correction);
+        if (newTP) message = message + " new " + TPMessage + "TP:" + d2s(myOrderTakeProfit) + "->" + d2s(TP) + " ";
+        if (newSL) message = message + " new " + SLMessage + "SL:" + d2s(myOrderStopLoss) + "->" + d2s(SL);
+        // if (newSL)   message = message + " (Trail:" + tSL + " N-Bar:" + bSL + "/" + BarCount + ")";
+        if (NormalizeDouble(Correction-1, 5) != 0) message = message + " Corrections determined as: " + d2s(Correction);
         debug(1, message);
         if (debugLevel() >= 2) {
-          if (TP_Val        != TPPips)      debug(2, "TP Pips changed from "                  + d2s(TP_Val)        + " to " + d2s(TPPips));
-          if (TP_Trail_Val  != TPTrailPips) debug(2, "TP trailing Pips changed from "         + d2s(TP_Trail_Val)  + " to " + d2s(TPTrailPips));
-          if (SL_Val        != SLPips)      debug(2, "SL Pips changed from "                  + d2s(SL_Val)        + " to " + d2s(SLPips));
-          if (SL_Trail_Val  != SLTrailPips) debug(2, "SL trailing Pips changed from "         + d2s(SL_Trail_Val)  + " to " + d2s(SLTrailPips));
-          if (SL_Steps_Size != SLStepsPips) debug(2, "SL Steps Size (Pips) changed from "     + d2s(SL_Steps_Size) + " to " + d2s(SLStepsPips));
-          if (SL_Steps_Val  != SLStepsDist) debug(2, "SL Steps Distance (Pips) changed from " + d2s(SL_Steps_Val)  + " to " + d2s(SLStepsDist));
+          if (NormalizeDouble(TP_Val       -TPPips, 5)      != 0) debug(2, "TP Pips changed from "                  + d2s(TP_Val)        + " to " + d2s(TPPips));
+          if (NormalizeDouble(TP_Trail_Val -TPTrailPips, 5) != 0) debug(2, "TP trailing Pips changed from "         + d2s(TP_Trail_Val)  + " to " + d2s(TPTrailPips));
+          if (NormalizeDouble(SL_Val       -SLPips, 5)      != 0) debug(2, "SL Pips changed from "                  + d2s(SL_Val)        + " to " + d2s(SLPips));
+          if (NormalizeDouble(SL_Trail_Val -SLTrailPips, 5) != 0) debug(2, "SL trailing Pips changed from "         + d2s(SL_Trail_Val)  + " to " + d2s(SLTrailPips));
+          if (NormalizeDouble(SL_Steps_Size-SLStepsPips, 5) != 0) debug(2, "SL Steps Size (Pips) changed from "     + d2s(SL_Steps_Size) + " to " + d2s(SLStepsPips));
+          if (NormalizeDouble(SL_Steps_Val -SLStepsDist, 5) != 0) debug(2, "SL Steps Distance (Pips) changed from " + d2s(SL_Steps_Val)  + " to " + d2s(SLStepsDist));
         }
       }
       Retry  = 0;
@@ -171,7 +179,8 @@ void OnTick() {
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
             executedOrder = "OrderModify (" + i2s(myTicket) + ", 0, " + d2s(SL) + ", " + d2s(TP) + ", 0, CLR_NONE) TP/SL set: " + i2s(rc);
-            if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            if (SL_activ(myTicket)) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            //if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         if (OrderType() == OP_SELL) {
@@ -181,7 +190,8 @@ void OnTick() {
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
             executedOrder = "OrderModify (" + i2s(myTicket) + ", 0, " + d2s(SL) + ", " + d2s(TP) + ", 0, CLR_NONE) TP/SL set: " + i2s(rc);
-            if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            if (SL_activ(myTicket)) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            // if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         Retry++;

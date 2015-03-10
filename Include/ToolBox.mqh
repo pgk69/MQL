@@ -30,9 +30,10 @@
   void ToolBox_Init();
   int debugLevel(int level=-1);
   void debug(int level, string message);
-  int hashTicket(int idx);
+  int hashIdx2Ticket(int idx);
+  int hashTicket2Idx(int ticket);
   void hashInitialize(string name, double& array[], double initValue = 0);
-  void dumpHash(string name, double &array[]);
+  void hashDump(string name, double &array[]);
   double hash(int ticket, string name, double& array[], double newValue = 0);
   int pipCorrection(int level=-1);
   string d2s(double number);

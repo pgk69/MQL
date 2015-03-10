@@ -15,14 +15,25 @@
 // common
 
 //--- Global variables
+bool initDone = false;
 int strategy[101];
+double StopLossVal[101];
+double TakeProfitVal[101];
+double SL_activ[101];
 
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
 //+------------------------------------------------------------------+
 void ExitStrategies_Init() export {
-  debug(1, "ExitStrategies Version: " + VERSION);
-  ArrayInitialize(strategy, true);
+  if (!initDone) {
+    ToolBox_Init();
+    debug(1, "ExitStrategies Version: " + VERSION);
+    ArrayInitialize(strategy, true);
+    hashInitialize("SL_activ", SL_activ, -1);
+    hashInitialize("SL",       StopLossVal);
+    hashInitialize("TP",       TakeProfitVal);
+    initDone = true;
+  }
 }
 
 
@@ -54,32 +65,60 @@ int ExitStrategieStatus(string strategie, bool On) export {
 
 
 //+------------------------------------------------------------------+
+//| Check whether Trade is already known function                    |
+//+------------------------------------------------------------------+
+void checkTrade(int ticket, double TPPips, double SLPips) export {
+  if (hashTicket2Idx(ticket) < 0) {
+    hash(OrderTicket(), "TP",       TakeProfitVal, TPPips);
+    hash(OrderTicket(), "SL",       StopLossVal,   SLPips);
+    hash(OrderTicket(), "SL_activ", SL_activ,      -1);
+  }
+}
+
+
+//+------------------------------------------------------------------+
 //| determine whether SL is activ                                    |
 //+------------------------------------------------------------------+
-bool SL_active(double TPPips, double SLPips) {
-  double deltaTP = 0;
-  double deltaSL = 0;
-
-  if (OrderType() == OP_BUY) {
-    deltaTP = OrderTakeProfit() - (OrderOpenPrice()+TPPips);
-    deltaSL = OrderStopLoss()   - (OrderOpenPrice()-SLPips);
-  }
-  if (OrderType() == OP_SELL) {
-    deltaTP = (OrderOpenPrice()-TPPips) - OrderTakeProfit();
-    deltaSL = (OrderOpenPrice()+SLPips) - OrderStopLoss();
-  }
-
-  bool SLActiv = (deltaTP > 0) || (deltaSL > 0);
-  debug(3, "SL Activation: " + i2s(SLActiv) + " (DeltaTP: " + d2s(deltaTP) + "  DeltaSL: " + d2s(deltaSL) + ")");
+bool SL_activ(int ticket) export {
   
-  return(SLActiv);
+  int rc = (int)hash(OrderTicket(), "SL_activ", SL_activ);
+
+  if (rc < 0) {
+    bool SThChanged = false;
+    double TPSL;
+    TPSL = hash(OrderTicket(), "TP", TakeProfitVal);
+    if (NormalizeDouble(TPSL, 5) == 0) {
+      if (NormalizeDouble(OrderTakeProfit(), 5) != 0) hash(OrderTicket(), "SL", TakeProfitVal, OrderTakeProfit());
+    } else {
+      if (NormalizeDouble(OrderTakeProfit()-TPSL, 5) != 0) {
+        SThChanged = true;
+      }
+    }
+ 
+    TPSL = hash(OrderTicket(), "SL", StopLossVal);
+    if (NormalizeDouble(TPSL, 5) == 0) {
+      if (NormalizeDouble(OrderStopLoss(), 5) != 0) hash(OrderTicket(), "SL", StopLossVal, OrderStopLoss());
+    } else {
+      if (NormalizeDouble(OrderStopLoss()-TPSL, 5) != 0) {
+        SThChanged = true;
+      }
+    }
+    
+    if (SThChanged) {
+      rc = 1;
+      hash(OrderTicket(), "SL_activ", SL_activ, 1);
+      debug(3, "SL Activation: Ticket: " + i2s(OrderTicket()));
+    }
+  }
+  
+  return(rc>0 ? 1 : 0);
 }
 
 
 //+------------------------------------------------------------------+
 //| determine TP                                                     |
 //+------------------------------------------------------------------+
-double TakeProfit(string& message, double TP, double TPPips, double TPTrailPips, double Correction) export {
+double TakeProfit(int ticket, string &message, double TP, double TPPips, double TPTrailPips, double Correction) export {
   double newTP = TP;
   string detail;
   detail = initial_TP(newTP, TPPips);
@@ -99,7 +138,7 @@ double TakeProfit(string& message, double TP, double TPPips, double TPTrailPips,
 //+------------------------------------------------------------------+
 //| determine SL                                                     |
 //+------------------------------------------------------------------+
-double StopLoss(string& message, double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, int timeframe, int barCount, double timeframeFaktor, double SLStepsPips, double SLStepsDist) export {
+double StopLoss(int ticket, string &message, double SL, double TPPips, double SLPips, double SLTrailPips, double Correction, int timeframe, int barCount, double timeframeFaktor, double SLStepsPips, double SLStepsDist) export {
   double newSL = SL;
   debug(2, initial_SL(newSL, SLPips));
   string detail = initial_SL(newSL, SLPips);
@@ -108,8 +147,7 @@ double StopLoss(string& message, double SL, double TPPips, double SLPips, double
     message = "initial ";
   }
   
-  // debug(2, "SL activ: " + SL_active(TPPips, SLPips));
-  if ((SL != 0) && SL_active(TPPips, SLPips)) {
+  if ((NormalizeDouble(SL, 5) != 0) && SL_activ(ticket)) {
 
     // ID 3: Trailing SL
     double SL1 = SL;
@@ -147,19 +185,19 @@ double StopLoss(string& message, double SL, double TPPips, double SLPips, double
 //      debug(3, "Steps newSL: " + newSL);
     }
  
-    if ((newSL == SL1) && (SL != SL1)) {
+    if ((NormalizeDouble(newSL-SL1, 5) == 0) && (NormalizeDouble(SL-SL1, 5) != 0)) {
       message = message + "trailing ";
       debug(2, message1);
     }
-    if ((newSL == SL2) && (SL != SL2)) {
+    if ((NormalizeDouble(newSL-SL2, 5) == 0) && (NormalizeDouble(SL-SL2, 5) != 0)) {
       message = message + "N-Bar ";
       debug(2, message2);
     }
-    if ((newSL == SL3) && (SL != SL3)) {
+    if ((NormalizeDouble(newSL-SL3, 5) == 0) && (NormalizeDouble(SL-SL3, 5) != 0)) {
       message = message + "Steps ";
       debug(2, message3); 
     }
-    if ((newSL == SL4) && (SL != SL4)) {
+    if ((NormalizeDouble(newSL-SL4, 5) == 0) && (NormalizeDouble(SL-SL4, 5) != 0)) {
       message = message + "D-Steps ";
       debug(2, message4); 
     }
@@ -175,14 +213,14 @@ double StopLoss(string& message, double SL, double TPPips, double SLPips, double
 //+------------------------------------------------------------------+
 //| determine initial TP  ID:0                                       |
 //+------------------------------------------------------------------+
-string initial_TP(double& TP, double TPPips) export {
+string initial_TP(double &TP, double TPPips) export {
   int ID = 0;
   MqlTick tick;
   double newTP = TP;
 
   string message = "";
   if (strategy[ID]) {
-    if (TP == 0) {
+    if (NormalizeDouble(TP, 5) == 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
           newTP = NormRound(tick.bid + TPPips);
@@ -191,7 +229,7 @@ string initial_TP(double& TP, double TPPips) export {
           newTP = NormRound(tick.ask - TPPips);
         }
     
-        if (newTP != TP) {
+        if (NormalizeDouble(newTP-TP, 5) != 0) {
           string longShort = OrderType() ? "short" : "long";
           message = "initial TakeProfit " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " initial: " + d2s(newTP);
           debug(3, message);
@@ -208,14 +246,14 @@ string initial_TP(double& TP, double TPPips) export {
 //+------------------------------------------------------------------+
 //| determine trailing TP  ID: 1                                     |
 //+------------------------------------------------------------------+
-string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correction) export {
+string trailing_TP(double &TP, double TPPips, double TPTrailPips, double Correction) export {
   int ID = 1;
   MqlTick tick;
   double newTP = TP;
 
   string message = "";
   if (strategy[ID]) {
-    if (TP != 0) {
+    if (NormalizeDouble(TP, 5) != 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
           newTP = fmax(TP, NormRound(tick.bid + Correction*TPTrailPips)); // TP will never be decreased
@@ -224,7 +262,7 @@ string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correct
           newTP = fmin(TP, NormRound(tick.ask - Correction*TPTrailPips)); // TP will never be increased
         }
     
-        if (newTP != TP) {
+        if (NormalizeDouble(newTP-TP, 5) != 0) {
           string longShort = OrderType() ? "short" : "long";
           message = "trailing TakeProfit " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(TP) + " new: " + d2s(newTP);
           debug(3, message);
@@ -241,14 +279,14 @@ string trailing_TP(double& TP, double TPPips, double TPTrailPips, double Correct
 //+------------------------------------------------------------------+
 //| determine initial SL  ID: 2                                      |
 //+------------------------------------------------------------------+
-string initial_SL(double& SL, double SLPips) export {
+string initial_SL(double &SL, double SLPips) export {
   int ID = 2;
   MqlTick tick;
   double newSL = SL;
 
   string message = "";
   if (strategy[ID]) {
-    if (SL == 0) {
+    if (NormalizeDouble(SL, 5) == 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
           newSL = NormRound(tick.bid - SLPips);
@@ -256,7 +294,7 @@ string initial_SL(double& SL, double SLPips) export {
         if (OrderType() == OP_SELL) {
           newSL = NormRound(tick.ask + SLPips);
         }
-        if (newSL != SL) {
+        if (NormalizeDouble(newSL-SL, 5) != 0) {
           string longShort = OrderType() ? "short" : "long";
           message = "initial StopLoss " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " initial: " + d2s(newSL);
           debug(3, message);
@@ -273,14 +311,14 @@ string initial_SL(double& SL, double SLPips) export {
 //+------------------------------------------------------------------+
 //| determine trailing SL  ID: 3                                     |
 //+------------------------------------------------------------------+
-string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correction) export {
+string trailing_SL(double &SL, double SLPips, double SLTrailPips, double Correction) export {
   int ID = 3;
   MqlTick tick;
   double newSL = SL;
 
   string message = "";
   if (strategy[ID]) {
-    if (SL != 0) {
+    if (NormalizeDouble(SL, 5) == 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
           newSL = fmax(SL, NormRound(tick.bid - SLTrailPips));
@@ -288,7 +326,7 @@ string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correct
         if (OrderType() == OP_SELL) {
           newSL = fmin(SL, NormRound(tick.ask + SLTrailPips));
         }
-        if (newSL != SL) {
+        if (NormalizeDouble(newSL-SL, 5) != 0) {
           string longShort = OrderType() ? "short" : "long";
           message = "trailing StopLoss " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(SL) + " new: " + d2s(newSL);
           debug(3, message);
@@ -305,7 +343,7 @@ string trailing_SL(double& SL, double SLPips, double SLTrailPips, double Correct
 //+------------------------------------------------------------------+
 //| determine N-Bar SL  ID: 4                                        |
 //+------------------------------------------------------------------+
-string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double timeframeFaktor) export {
+string N_Bar_SL(double &SL, double SLPips, int timeframe, int barCount, double timeframeFaktor) export {
   int ID = 4;
   MqlTick tick;
   double newSL = SL;
@@ -328,7 +366,7 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
       else                                        timeframe = PERIOD_MN1;
     }
 
-    if (SL != 0) {  // only if it's not an initial
+    if (NormalizeDouble(SL, 5) != 0) { // only if it's not an initial
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
           double Min_N_Bar = 1000000000;
@@ -344,7 +382,7 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
           newSL = fmin(SL, Max_N_Bar);
           debug(4, "fmin(SL=" + d2s(SL) + ", Max_N_Bar=" + d2s(Max_N_Bar) + ")=" + d2s(newSL));
         }
-        if (newSL != SL) {
+        if (NormalizeDouble(newSL-SL, 5) != 0) {
           string longShort = OrderType() ? "short" : "long";
           message = i2s(barCount) + "-Bar StopLoss (Periode: " + i2s(timeframe) + "/" + d2s(barTime) + "/" + d2s(timeframeFaktor) + ") " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(SL) + " new: " + d2s(newSL);
           debug(3, message);
@@ -361,14 +399,14 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
 //+------------------------------------------------------------------+
 //| determine Steps SL  ID: 5                                        |
 //+------------------------------------------------------------------+
- string Steps_SL(double& SL, double SLStepsPips, double SLStepsDist) export {
+ string Steps_SL(double &SL, double SLStepsPips, double SLStepsDist) export {
   int ID = 5;
   MqlTick tick;
   double newSL = SL;
 
   string message = "";
   if (strategy[ID]) {
-    if (SL != 0) {
+    if (NormalizeDouble(SL, 5) != 0) {
       if (SymbolInfoTick(OrderSymbol(), tick)) {
         if (OrderType() == OP_BUY) {
           double Step = floor((tick.bid - OrderOpenPrice() - SLStepsDist)/SLStepsPips);
@@ -378,7 +416,7 @@ string N_Bar_SL(double& SL, double SLPips, int timeframe, int barCount, double t
           double Step = floor((OrderOpenPrice() - tick.ask - SLStepsDist)/SLStepsPips);
           newSL = fmin(SL, NormRound(OrderOpenPrice() - Step*SLStepsPips));
         }
-        if (newSL != SL) {
+        if (NormalizeDouble(newSL-SL, 5) != 0) {
           string longShort = OrderType() ? "short" : "long";
           message = "Steps StopLoss " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(SL) + " new: " + d2s(newSL);
           debug(3, message);
