@@ -65,8 +65,8 @@ input int MaxRetry           = 10;   // OrderSend/OrderModify max. Retry
 input int PipCorrection      = 1;    // Correction faktor for calculation Pips from Price
 
 //--- Global variables
-double tpValue[101];
-double slValue[101];
+//double tpValue[101];
+//double slValue[101];
 
 //--- Includes
 //#include <stderror.mqh>
@@ -134,19 +134,21 @@ void OnTick() {
     double SLStepsPips = calcPips(Percent, SL_Steps_Size);
     double SLStepsDist = calcPips(Percent, SL_Steps_Val);
   
-    // Check whether trade is already known
-    checkTrade(myTicket, myOrderTakeProfit, myOrderStopLoss);
-  
-    // Caluculate new TP Value
+    bool newTP = 0;
+    bool newSL = 0;
+    double TP = 0;
+    double SL = 0;
     string TPMessage = "";
-    double TP = TakeProfit(myTicket, TPMessage, myOrderTakeProfit, TPPips, TPTrailPips, Correction);
+    string SLMessage = "";
+
+    // Caluculate new TP Value
+    TP = TakeProfit(myTicket, TPMessage, myOrderTakeProfit, TPPips, TPTrailPips, Correction);
+    newTP = (NormalizeDouble(TP-myOrderTakeProfit, 5) == 0);
 
     // Calculate new SL Value
-    string SLMessage = "";
-    double SL = StopLoss(myTicket, SLMessage, myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, TimeFrame, BarCount, TimeFrameFaktor, SLStepsPips, SLStepsDist);
-   
-    bool newSL = (NormalizeDouble(SL-myOrderStopLoss, 5) == 0);   
-    bool newTP = (NormalizeDouble(TP-myOrderTakeProfit, 5) == 0);   
+    SL = StopLoss(myTicket, SLMessage, myOrderStopLoss, TPPips, SLPips, SLTrailPips, Correction, TimeFrame, BarCount, TimeFrameFaktor, SLStepsPips, SLStepsDist);
+    newSL = (NormalizeDouble(SL-myOrderStopLoss, 5) == 0);   
+
     if (newSL || newTP) {
       if (debugLevel() >= 1) {
         string message = "";
@@ -173,24 +175,24 @@ void OnTick() {
         MqlTick tick;
         SymbolInfoTick(myOrderSymbol, tick);
         if (OrderType() == OP_BUY) {
-          if (tick.bid < SL) {
+          if (NormalizeDouble(SL-tick.bid, 5) > 0.00001) {
             rc = OrderClose(myTicket, myOrderLots, tick.bid, 3, clrNONE);
             executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
             executedOrder = "OrderModify (" + i2s(myTicket) + ", 0, " + d2s(SL) + ", " + d2s(TP) + ", 0, CLR_NONE) TP/SL set: " + i2s(rc);
-            if (SL_activ(myTicket)) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            if (SL_is_active(myTicket)) rcint = followUpOrder(myTicket, FollowUpExpiry);
             //if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
         if (OrderType() == OP_SELL) {
-          if (tick.ask > SL) {
+          if (NormalizeDouble(tick.bid-SL, 5) > 0.00001) {
             rc = OrderClose(myTicket, myOrderLots, tick.ask, 3, clrNONE);
             executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
             rc = OrderModify(myTicket, 0, SL, TP, 0, CLR_NONE);
             executedOrder = "OrderModify (" + i2s(myTicket) + ", 0, " + d2s(SL) + ", " + d2s(TP) + ", 0, CLR_NONE) TP/SL set: " + i2s(rc);
-            if (SL_activ(myTicket)) rcint = followUpOrder(myTicket, FollowUpExpiry);
+            if (SL_is_active(myTicket)) rcint = followUpOrder(myTicket, FollowUpExpiry);
             // if (myOrderStopLoss != 0) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }

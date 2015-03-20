@@ -19,7 +19,8 @@ bool initDone = false;
 int strategy[101];
 double StopLossVal[101];
 double TakeProfitVal[101];
-double SL_activ[101];
+double Active_Arr[101];
+bool Active = 0;
 
 //+------------------------------------------------------------------+
 //| expert initialization function                                   |
@@ -29,9 +30,9 @@ void ExitStrategies_Init() export {
     ToolBox_Init();
     debug(1, "ExitStrategies Version: " + VERSION);
     ArrayInitialize(strategy, true);
-    hashInitialize("SL_activ", SL_activ, -1);
-    hashInitialize("SL",       StopLossVal);
-    hashInitialize("TP",       TakeProfitVal);
+    hashInitialize("Active", Active_Arr,    -1);
+    hashInitialize("SL",     StopLossVal,    0);
+    hashInitialize("TP",     TakeProfitVal,  0);
     initDone = true;
   }
 }
@@ -69,9 +70,9 @@ int ExitStrategieStatus(string strategie, bool On) export {
 //+------------------------------------------------------------------+
 void checkTrade(int ticket, double TPPips, double SLPips) export {
   if (hashTicket2Idx(ticket) < 0) {
-    hash(OrderTicket(), "TP",       TakeProfitVal, TPPips);
-    hash(OrderTicket(), "SL",       StopLossVal,   SLPips);
-    hash(OrderTicket(), "SL_activ", SL_activ,      -1);
+    hash(OrderTicket(), "Active", Active_Arr,        -1);
+    hash(OrderTicket(), "SL",     StopLossVal,   SLPips);
+    hash(OrderTicket(), "TP",     TakeProfitVal, TPPips);
   }
 }
 
@@ -79,39 +80,41 @@ void checkTrade(int ticket, double TPPips, double SLPips) export {
 //+------------------------------------------------------------------+
 //| determine whether SL is activ                                    |
 //+------------------------------------------------------------------+
-bool SL_activ(int ticket) export {
-  
-  int rc = (int)hash(OrderTicket(), "SL_activ", SL_activ);
+bool SL_is_active(int ticket) export {
 
-  if (rc < 0) {
-    bool SThChanged = false;
-    double TPSL;
-    TPSL = hash(OrderTicket(), "TP", TakeProfitVal);
-    if (NormalizeDouble(TPSL, 5) == 0) {
-      if (NormalizeDouble(OrderTakeProfit(), 5) != 0) hash(OrderTicket(), "SL", TakeProfitVal, OrderTakeProfit());
-    } else {
-      if (NormalizeDouble(OrderTakeProfit()-TPSL, 5) != 0) {
-        SThChanged = true;
-      }
-    }
- 
-    TPSL = hash(OrderTicket(), "SL", StopLossVal);
-    if (NormalizeDouble(TPSL, 5) == 0) {
-      if (NormalizeDouble(OrderStopLoss(), 5) != 0) hash(OrderTicket(), "SL", StopLossVal, OrderStopLoss());
-    } else {
-      if (NormalizeDouble(OrderStopLoss()-TPSL, 5) != 0) {
-        SThChanged = true;
-      }
-    }
-    
-    if (SThChanged) {
-      rc = 1;
-      hash(OrderTicket(), "SL_activ", SL_activ, 1);
-      debug(3, "SL Activation: Ticket: " + i2s(OrderTicket()));
-    }
-  }
+  return (hash(ticket, "Active", Active_Arr) > 0) ? 1 : 0;
   
-  return(rc>0 ? 1 : 0);
+//  int rc = (int)hash(OrderTicket(), "Active", Active_Arr);
+//
+//  if (rc < 0) {
+//    bool SThChanged = false;
+//    double TPSL;
+//    TPSL = hash(OrderTicket(), "TP", TakeProfitVal);
+//    if (NormalizeDouble(TPSL, 5) == 0) {
+//      if (NormalizeDouble(OrderTakeProfit(), 5) != 0) hash(OrderTicket(), "SL", TakeProfitVal, OrderTakeProfit());
+//    } else {
+//      if (NormalizeDouble(OrderTakeProfit()-TPSL, 5) != 0) {
+//        SThChanged = true;
+//      }
+//    }
+// 
+//    TPSL = hash(OrderTicket(), "SL", StopLossVal);
+//    if (NormalizeDouble(TPSL, 5) == 0) {
+//      if (NormalizeDouble(OrderStopLoss(), 5) != 0) hash(OrderTicket(), "SL", StopLossVal, OrderStopLoss());
+//    } else {
+//      if (NormalizeDouble(OrderStopLoss()-TPSL, 5) != 0) {
+//        SThChanged = true;
+//      }
+//    }
+//    
+//    if (SThChanged) {
+//      rc = 1;
+//      hash(OrderTicket(), "Active", Active_Arr, 1);
+//      debug(3, "SL Activation: Ticket: " + i2s(OrderTicket()));
+//    }
+//  }
+//  
+//  return(rc>0 ? 1 : 0);
 }
 
 
@@ -131,6 +134,15 @@ double TakeProfit(int ticket, string &message, double TP, double TPPips, double 
     debug(2, detail);
     message = "trailing ";
   }
+
+  if (NormalizeDouble(TP, 5) == 0) {
+    // New Trade or resettet manually
+    hash(ticket, "Activ", Active_Arr, 0);
+  } else if (NormalizeDouble(newTP-TP, 5) != 0) {
+    // Existing Trade got new TP -> activte SL
+    hash(ticket, "Activ", Active_Arr, 1);
+  }
+
   return(newTP);
 }
 
@@ -147,7 +159,7 @@ double StopLoss(int ticket, string &message, double SL, double TPPips, double SL
     message = "initial ";
   }
   
-  if ((NormalizeDouble(SL, 5) != 0) && SL_activ(ticket)) {
+  if ((NormalizeDouble(SL, 5) != 0) && hash(ticket, "Activ", Active_Arr)) {
 
     // ID 3: Trailing SL
     double SL1 = SL;
@@ -176,13 +188,13 @@ double StopLoss(int ticket, string &message, double SL, double TPPips, double SL
       debug(3, "Steps newSL: " + d2s(newSL));
     }
  
-    // ID 5: D-Steps SL
+    // ID 6: D-Steps SL
     double SL4 = SL;
     string message4 = "";
     if (strategy[6]) {
-//      message4 = Steps_SL(SL3, SLStepsPips, SLStepsDist);
+//      message4 = DSteps_SL(SL4, SLStepsPips, SLStepsDist);
 //      newSL = (OrderType() == OP_BUY) ? fmax(newSL, SL4): fmin(newSL, SL4);
-//      debug(3, "Steps newSL: " + newSL);
+//      debug(3, "D-Steps newSL: " + newSL);
     }
  
     if ((NormalizeDouble(newSL-SL1, 5) == 0) && (NormalizeDouble(SL-SL1, 5) != 0)) {
@@ -431,6 +443,40 @@ string N_Bar_SL(double &SL, double SLPips, int timeframe, int barCount, double t
 
 
 //+------------------------------------------------------------------+
+//| determine D-Steps SL  ID: 6                                      |
+//+------------------------------------------------------------------+
+ string DSteps_SL(double &SL, double &steps[]) export {
+  int ID = 5;
+  MqlTick tick;
+  double newSL = SL;
+
+  string message = "";
+  if (strategy[ID]) {
+    if (NormalizeDouble(SL, 5) != 0) {
+      if (SymbolInfoTick(OrderSymbol(), tick)) {
+        if (OrderType() == OP_BUY) {
+//          double Step = floor((tick.bid - OrderOpenPrice() - SLStepsDist)/SLStepsPips);
+//          newSL = fmax(SL, NormRound(OrderOpenPrice() + Step*SLStepsPips));
+        }
+        if (OrderType() == OP_SELL) {
+//          double Step = floor((OrderOpenPrice() - tick.ask - SLStepsDist)/SLStepsPips);
+//          newSL = fmin(SL, NormRound(OrderOpenPrice() - Step*SLStepsPips));
+        }
+        if (NormalizeDouble(newSL-SL, 5) != 0) {
+          string longShort = OrderType() ? "short" : "long";
+          message = "Steps StopLoss " + longShort + " Order (" + i2s(OrderTicket()) + "): Buyprice: " + d2s(OrderOpenPrice()) + " Bid/Ask: " + d2s(tick.bid) + "/" + d2s(tick.ask) + " old: " + d2s(SL) + " new: " + d2s(newSL);
+          debug(3, message);
+          SL = newSL;
+        }
+      }
+    }
+  }
+
+  return(message);
+}
+
+
+//+------------------------------------------------------------------+
 //| FollowUp Order  ID: 100                                          |
 //+------------------------------------------------------------------+
 int followUpOrder(int ticketID, int expiry) export {
@@ -438,7 +484,7 @@ int followUpOrder(int ticketID, int expiry) export {
 
   int rc = 0;
   if (strategy[ID]) {
-    if (OrderSelect(ticketID, SELECT_BY_TICKET, MODE_TRADES)) {
+    if (OrderSelect(ticketID, SELECT_BY_TICKET)) {
       string mySymbol   = OrderSymbol();
       double myLots     = OrderLots();
       double myPrice    = OrderOpenPrice();

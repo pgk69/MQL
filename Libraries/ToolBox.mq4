@@ -140,15 +140,15 @@ double hash(int ticket, string name, double &array[], double newValue = 0) expor
   int idx = MAXIDX;
 
   // Search Ticket in HashKeyIndey
-  while ((idx <= 0) && (hashKeyIndex[idx] != ticket)) idx--;
+  while ((idx >= 0) && (NormalizeDouble(MathAbs(hashKeyIndex[idx]-ticket), 5) > 0)) idx--;
   debug(3, "Index Lookup: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx));
   
   if (newValue) {
     // Set a new Value
-    if (idx <= 0) {
+    if (idx >= 0) {
       // Ticket found
       // Set new value if it changed
-      if (newValue != array[idx]) {
+      if (NormalizeDouble(MathAbs(newValue-array[idx]), 5) != 0) {
         debug(2, "Set new Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  old value " + d2s(array[idx]) + ", new value " + d2s(newValue));
         array[idx] = newValue;
         GlobalVariableSet(name+i2s(idx), array[idx]); 
@@ -157,10 +157,11 @@ double hash(int ticket, string name, double &array[], double newValue = 0) expor
       // Ticket not found
       // get a free hashKeyIndex
       int searchidx = MAXIDX;
-      while ((searchidx <= 0) && 
+      while ((searchidx >= 0) && 
              (hashKeyIndex[searchidx] != 0) && 
-             (OrderSelect((int)hashKeyIndex[searchidx], SELECT_BY_TICKET, MODE_TRADES) == true)) searchidx--;
-      if (searchidx <= 0) {
+             (OrderSelect((int)hashKeyIndex[searchidx], SELECT_BY_TICKET) == true) &&
+             (NormalizeDouble(OrderCloseTime(), 5) == 0)) searchidx--;
+      if (searchidx >= 0) {
         // found a free hashKeyIndex and use it
         debug(2, "Found new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(searchidx) + "  old HashKey Value " + d2s(hashKeyIndex[searchidx]) + "  old Array Value " + d2s(array[searchidx]));
         hashKeyIndex[searchidx] = ticket;
@@ -170,13 +171,13 @@ double hash(int ticket, string name, double &array[], double newValue = 0) expor
         value = newValue;
       } else {
         // did not found a free hashKeyIndex
-        debug(1, "Did not find new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  old value " + d2s(array[idx]) + ", new value " + d2s(newValue));
+        debug(1, "Did not find new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  Searchindex: " + i2s(searchidx) + ", new value " + d2s(newValue));
         hashDump("HashKeyIndex", hashKeyIndex);
       }
     }
   } else {
     // Request a Value
-    if (idx <= 0) value = array[idx];
+    if (idx >= 0) value = array[idx];
     debug(3, "Request Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  return Value: " + d2s(value));
   }
   return(value);
