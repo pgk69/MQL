@@ -26,9 +26,7 @@ extern int PipCorrection = 1;
 
 //--- Global variables
 bool initDone = false;
-// MAXIDX = Arraysize-1, da Index ab 0 zaehlt
-int MAXIDX            = 2;
-double hashKeyIndex[3];
+double hashKeyIndex[101];
 
 //+------------------------------------------------------------------+
 //| My function                                                      |
@@ -45,7 +43,7 @@ double hashKeyIndex[3];
 //+------------------------------------------------------------------+
 void ToolBox_Init() export {
   if (!initDone) {
-    debug(1, "ToolBox Version: " + VERSION);
+    debug(1, "ToolBox_Init: ToolBox Version: " + VERSION);
     hashInitialize("hashKeyIndex", hashKeyIndex, 0);
     initDone = true;
   }
@@ -78,12 +76,13 @@ int debugLevel(int level=-1) export {
 //+------------------------------------------------------------------+
 void hashDump(string name, double &array[]) export {
   int idx = 0;
-  while (idx <= MAXIDX) {
+  int maxidx = ArraySize(array)-1;
+  while (idx <= maxidx){
     string msg = "";
     if (name != "HashKeyIndex") msg = name + ": ";
     msg = msg + "HashKeyIndex: "+i2s(idx) + ": " + i2s(hashIdx2Ticket(idx)) + ": ";
     msg = msg + d2s(array[idx]);
-    debug(2, msg);
+    debug(2, "hashDump: " + msg);
     idx++;
   }
 }
@@ -94,9 +93,11 @@ void hashDump(string name, double &array[]) export {
 //+------------------------------------------------------------------+
 void hashInitialize(string name, double &array[], double initValue = 0) export {
   int idx = 0;
-  while (idx <= MAXIDX ){
+  int maxidx = ArraySize(array)-1;
+  while (idx <= maxidx){
     // Get Global Variable
     double dummy;
+    double vorher = array[idx];
     string msg = "Init " + name + ": ";
     msg = msg + "HashKeyIndex: "+i2s(idx) + ": " + i2s(hashIdx2Ticket(idx)) + ": ";
     msg = msg + "Vorher: " + d2s(array[idx]) + "  ";
@@ -108,9 +109,10 @@ void hashInitialize(string name, double &array[], double initValue = 0) export {
       GlobalVariableSet(name+i2s(idx), array[idx]); 
       msg = msg + "Nachher(init): " + d2s(array[idx]);
     }
-    debug(2, msg);
+    if (NormalizeDouble(vorher-array[idx], 5) > 0) debug(2, "hashInitialize: " + msg);
     idx++;
   }
+  GlobalVariablesFlush();
 }
 
 
@@ -126,7 +128,7 @@ int hashIdx2Ticket(int idx) export {
 //| hashTicket2Idx funktion                                          |
 //+------------------------------------------------------------------+
 int hashTicket2Idx(int ticket) export {
-  int idx = MAXIDX;
+  int idx = ArraySize(hashKeyIndex)-1;
   while ((idx >= 0) && (hashKeyIndex[idx] != ticket)) idx--;
   return(idx);
 }
@@ -137,11 +139,11 @@ int hashTicket2Idx(int ticket) export {
 //+------------------------------------------------------------------+
 double hash(int ticket, string name, double &array[], double newValue = 0) export {
   double value = 0;
-  int idx = MAXIDX;
+  int idx = ArraySize(array)-1;
 
   // Search Ticket in HashKeyIndey
   while ((idx >= 0) && (NormalizeDouble(MathAbs(hashKeyIndex[idx]-ticket), 5) > 0)) idx--;
-  debug(3, "Index Lookup: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx));
+  debug(3, "hash: Index Lookup: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx));
   
   if (newValue) {
     // Set a new Value
@@ -149,21 +151,21 @@ double hash(int ticket, string name, double &array[], double newValue = 0) expor
       // Ticket found
       // Set new value if it changed
       if (NormalizeDouble(MathAbs(newValue-array[idx]), 5) != 0) {
-        debug(2, "Set new Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  old value " + d2s(array[idx]) + ", new value " + d2s(newValue));
+        debug(2, "hash: Set new Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  old value " + d2s(array[idx]) + ", new value " + d2s(newValue));
         array[idx] = newValue;
         GlobalVariableSet(name+i2s(idx), array[idx]); 
       }
     } else {
       // Ticket not found
       // get a free hashKeyIndex
-      int searchidx = MAXIDX;
+      int searchidx = ArraySize(array)-1;
       while ((searchidx >= 0) && 
              (hashKeyIndex[searchidx] != 0) && 
              (OrderSelect((int)hashKeyIndex[searchidx], SELECT_BY_TICKET) == true) &&
              (NormalizeDouble(OrderCloseTime(), 5) == 0)) searchidx--;
       if (searchidx >= 0) {
         // found a free hashKeyIndex and use it
-        debug(2, "Found new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(searchidx) + "  old HashKey Value " + d2s(hashKeyIndex[searchidx]) + "  old Array Value " + d2s(array[searchidx]));
+        debug(2, "hash: Found new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(searchidx) + "  old HashKey Value " + d2s(hashKeyIndex[searchidx]) + "  old Array Value " + d2s(array[searchidx]));
         hashKeyIndex[searchidx] = ticket;
         GlobalVariableSet("hashKeyIndex"+i2s(searchidx), hashKeyIndex[searchidx]); 
         array[searchidx] = newValue;
@@ -171,14 +173,14 @@ double hash(int ticket, string name, double &array[], double newValue = 0) expor
         value = newValue;
       } else {
         // did not found a free hashKeyIndex
-        debug(1, "Did not find new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  Searchindex: " + i2s(searchidx) + ", new value " + d2s(newValue));
+        debug(1, "hash: Did not find new free HashKey Index: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  Searchindex: " + i2s(searchidx) + ", new value " + d2s(newValue));
         hashDump("HashKeyIndex", hashKeyIndex);
       }
     }
   } else {
     // Request a Value
     if (idx >= 0) value = array[idx];
-    debug(3, "Request Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  return Value: " + d2s(value));
+    debug(3, "hash: Request Value: Array: " + name + "  Ticket: " + i2s(ticket) + "  Index: " + i2s(idx) + "  return Value: " + d2s(value));
   }
   return(value);
 }
@@ -240,14 +242,14 @@ double calcPips(double Percent, double Value) export {
   
   if (Percent && Value && SymbolInfoTick(OrderSymbol(), tick)) {
     if (OrderType() == OP_BUY) {
-      newPips = Value/100 * tick.ask;
+      newPips =  NormRound(Value/100 * tick.ask);
     } else {
-      newPips = Value/100 * tick.bid;
+      newPips =  NormRound(Value/100 * tick.bid);
     }
   } else {
-    newPips = PipCorrection*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Value;
+    newPips =  NormRound(PipCorrection*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Value);
   }
-  // debug(4, "Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE));
+  // debug(4, "calcPips: Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE));
   return(newPips);
 }
 
@@ -261,10 +263,10 @@ double NormRound(double Value) export {
   double OrderTradeTickSize = SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE);
 
   double newValue = OrderTradeTickSize * round(Value/OrderTradeTickSize);
-  debug(4, "Normalizing " + d2s(Value) + " OrderTradeTickSize * round(Value/OrderTradeTickSize): " + d2s(newValue) + "  NormalizeDouble(Value, OrderDigits): " + d2s(NormalizeDouble(Value, OrderDigits)));
+  debug(4, "NormRound: Normalizing " + d2s(Value) + " OrderTradeTickSize * round(Value/OrderTradeTickSize): " + d2s(newValue) + "  NormalizeDouble(Value, OrderDigits): " + d2s(NormalizeDouble(newValue, OrderDigits)));
   newValue = NormalizeDouble(newValue, OrderDigits);
 
-  return(Value);
+  return(newValue);
 }
 
 
