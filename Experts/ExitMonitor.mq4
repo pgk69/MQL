@@ -176,6 +176,7 @@ void OnTick() {
         SymbolInfoTick(myOrderSymbol, tick);
         if (OrderType() == OP_BUY) {
           if (NormalizeDouble(SL-tick.bid, 5) > 0.00001) {
+            debug(1, "ExitMonitor: Close BUY: Bid: " + d2s(tick.bid) + "  SL: " + d2s(SL) + "  Differenz: " + d2s(NormalizeDouble(SL-tick.bid, 5)));
             rc = OrderClose(myTicket, myOrderLots, tick.bid, 3, clrNONE);
             executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
@@ -186,6 +187,7 @@ void OnTick() {
         }
         if (OrderType() == OP_SELL) {
           if (NormalizeDouble(tick.bid-SL, 5) > 0.00001) {
+            debug(1, "ExitMonitor: Close SELL: Bid: " + d2s(tick.bid) + "  SL: " + d2s(SL) + "  Differenz: " + d2s(NormalizeDouble(tick.bid-SL, 5)));
             rc = OrderClose(myTicket, myOrderLots, tick.ask, 3, clrNONE);
             executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
