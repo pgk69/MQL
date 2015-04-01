@@ -112,7 +112,7 @@ void OnTick() {
   debug(4, "ExitMonitor: Read Orderbook (Total of all Symbols: " + i2s(OrdersTotal()) + ")");
   for (int i=0; i<OrdersTotal(); i++) {
     if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES) == false) continue; // Only valid Tickets are processed
-    if ((OrderType() > OP_SELL))                             continue; // Only OP_BUY or OP_SELL Tickets are processed
+    if (OrderType() > OP_SELL)                               continue; // Only OP_BUY or OP_SELL Tickets are processed
     if (onlyCurrentSymbol && (OrderSymbol() != Symbol()))    continue; // according to onlyCurrentSymbol only tickets trading the current symbol are processed
     if (MagicNumber && (OrderMagicNumber() != MagicNumber))  continue; // according to MagicNumber only tickets with fitting magicnumber are processed
     
@@ -174,8 +174,9 @@ void OnTick() {
         RefreshRates();
         MqlTick tick;
         SymbolInfoTick(myOrderSymbol, tick);
-        if (OrderType() == OP_BUY) {
+        if (myOrderType == OP_BUY) {
           if (NormalizeDouble(SL-tick.bid, 5) > 0.00001) {
+            debug(1, "ExitMonitor: Close BUY: Bid: " + d2s(tick.bid) + "  SL: " + d2s(SL) + "  Differenz: " + d2s(NormalizeDouble(SL-tick.bid, 5)));
             rc = OrderClose(myTicket, myOrderLots, tick.bid, 3, clrNONE);
             executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
@@ -184,8 +185,9 @@ void OnTick() {
             if (SL_is_active(myTicket)) rcint = followUpOrder(myTicket, FollowUpExpiry);
           }
         }
-        if (OrderType() == OP_SELL) {
+        if (myOrderType == OP_SELL) {
           if (NormalizeDouble(tick.bid-SL, 5) > 0.00001) {
+            debug(1, "ExitMonitor: Close SELL: Bid: " + d2s(tick.bid) + "  SL: " + d2s(SL) + "  Differenz: " + d2s(NormalizeDouble(tick.bid-SL, 5)));
             rc = OrderClose(myTicket, myOrderLots, tick.ask, 3, clrNONE);
             executedOrder = "OrderClose (" + i2s(myTicket) + ") rc: " + i2s(rc);
           } else {
