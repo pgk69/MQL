@@ -132,7 +132,8 @@ void OnTick() {
         if (SignalSL < Price - (DefaultSL + 10)) SignalSL = Price - DefaultSL;
         if (SignalTP > Price + (DefaultTP + 10)) SignalTP = Price + DefaultTP;
         int Ticket = 0;
-        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
+        // if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
+        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, 0, 0, "Start Trading", MagicNumber, Expiration, clrNONE);
         debug(3, i2s(Ticket) + ": OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
       }
 
@@ -150,7 +151,8 @@ void OnTick() {
         if (SignalSL > Price + (DefaultSL + 10)) SignalSL = Price + DefaultSL;
         if (SignalTP < Price - (DefaultTP + 10)) SignalTP = Price - DefaultTP;
         int Ticket = 0;
-        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
+        // if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
+        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, 0, 0, "Start Trading", MagicNumber, Expiration, clrNONE);
         debug(3, i2s(Ticket) + ": OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
       }
       debugLevel(fmax(3, Debug));
