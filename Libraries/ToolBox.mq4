@@ -236,20 +236,21 @@ double indFaktor() export {
 //+------------------------------------------------------------------+
 //| Calculate Percent to Pips                                        |
 //+------------------------------------------------------------------+
-double calcPips(double Percent, double Value) export {
+double calcPips(double Percent, double Value, string OS = "") export {
   double newPips;
   MqlTick tick;
+  if (OS == "") OS = OrderSymbol();
   
-  if (Percent && Value && SymbolInfoTick(OrderSymbol(), tick)) {
+  if (Percent && Value && SymbolInfoTick(OS, tick)) {
     if (OrderType() == OP_BUY) {
       newPips =  NormRound(Value/100 * tick.ask);
     } else {
       newPips =  NormRound(Value/100 * tick.bid);
     }
   } else {
-    newPips =  NormRound(PipCorrection*SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT)*Value);
+    newPips =  NormRound(PipCorrection*SymbolInfoDouble(OS, SYMBOL_POINT)*Value);
   }
-  // debug(4, "calcPips: Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OrderSymbol(), SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OrderSymbol(), SYMBOL_TRADE_TICK_SIZE));
+  // debug(4, "calcPips: Old: " + Value + "  New: " + newPips + "  Point: " + SymbolInfoDouble(OS, SYMBOL_POINT) + "  Digits: " + SymbolInfoInteger(OS, SYMBOL_DIGITS) + "  Ticksize: " + SymbolInfoDouble(OS, SYMBOL_TRADE_TICK_SIZE));
   return(newPips);
 }
 

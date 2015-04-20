@@ -40,7 +40,7 @@
   string i2s(int number);
   string t2s(datetime number);
   double indFaktor();
-  double calcPips(double Percent, double Value);
+  double calcPips(double Percent, double Value, string OS = "");
   double NormRound(double Value);
   int PeriodToIndex(int period);
   int IndexToPeriod(int index);
