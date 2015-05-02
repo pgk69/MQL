@@ -22,6 +22,7 @@ extern bool initialize       = true;   // New Initialization?
 
 input int MagicNumber        = 0;
 
+input int DualLimitPips      = 50;     // Entrypoint in Dualmode
 input int SLPips             = 50;     // Stoploss Pips
 input int TPPips             = 150;    // TakeProfit Pips
 
@@ -45,6 +46,7 @@ input bool USDCHF            = false;  // Trade USDCHF
 struct trade_type {string Symbol;
                    double SL;
                    double TP;
+                   double DLP;
                    int    ShortID;
                    int    LongID;
                    int    nextTrade;
@@ -135,6 +137,7 @@ void RandomTrader_Init() {
       pipCorrection(trade[idx].PIPCorrection);
       trade[idx].SL            = calcPips(0, SLPips, trade[idx].Symbol);
       trade[idx].TP            = calcPips(0, TPPips, trade[idx].Symbol);
+      trade[idx].DLP           = calcPips(0, DualLimitPips, trade[idx].Symbol);
       trade[idx].nextTrade     = -1;
       trade[idx].ShortID       = (int)GlobalVariableGet("RandomTrader_ShortID" + i2s(idx));
       trade[idx].LongID        = (int)GlobalVariableGet("RandomTrader_LongID" + i2s(idx));
@@ -161,7 +164,8 @@ void OnDeinit(const int reason) {
 //+------------------------------------------------------------------+
 void OnTick() {
   int idx = ArraySize(trade);
-
+  double price;
+  
   // for each Symbol to be processed
   while (idx > 0) {
     idx--;
@@ -177,20 +181,32 @@ void OnTick() {
         // check whether random wait time is over 
         if (trade[idx].nextTrade < (int)TimeCurrent()) {
           // open e new Trade
-          int SELLBUY = rand() % 2;
-          if (SELLBUY || dual) {
-            // SELL
-            double price = SymbolInfoDouble(trade[idx].Symbol, SYMBOL_BID);
-            trade[idx].ShortID = OrderSend(trade[idx].Symbol, OP_SELL, LotSize, price, 3, price + trade[idx].SL, price - trade[idx].TP, "RandomTrading", MagicNumber, 0, clrNONE);
-            GlobalVariableSet("RandomTrader_ShortID"+i2s(idx), trade[idx].ShortID); 
-            debug(1, "RandomTrade: OrderSend (" + trade[idx].Symbol + ", OP_SELL, " + d2s(LotSize) + ", " + d2s(price) + ", 3, " + d2s(price+trade[idx].SL) + ", " + d2s(price-trade[idx].TP)+ ", RandomTrading, " + i2s(MagicNumber) + ", 0, CLR_NONE)");
-          }
-          if (!SELLBUY || dual) {
-            // BUY
-            double price = SymbolInfoDouble(trade[idx].Symbol, SYMBOL_ASK);
-            trade[idx].LongID = OrderSend(trade[idx].Symbol, OP_BUY, LotSize, price, 3, price - trade[idx].SL, price + trade[idx].TP, "RandomTrading", MagicNumber, 0, clrNONE);
-            GlobalVariableSet("RandomTrader_LongID"+i2s(idx), trade[idx].LongID); 
-            debug(1, "RandomTrade: OrderSend (" + trade[idx].Symbol + ", OP_BUY, " + d2s(LotSize) + ", " + d2s(price) + ", 3, " + d2s(price-trade[idx].SL) + ", " + d2s(price+trade[idx].TP)+ ", RandomTrading, " + i2s(MagicNumber) + ", 0, CLR_NONE)");
+          if (dual) {
+              // SELL
+              price = SymbolInfoDouble(trade[idx].Symbol, SYMBOL_BID);
+              trade[idx].ShortID = OrderSend(trade[idx].Symbol, OP_SELLSTOP, LotSize, price - trade[idx].DLP, 3, price - trade[idx].DLP + trade[idx].SL, price - trade[idx].TP, "RandomTrading", MagicNumber, 0, clrNONE);
+              GlobalVariableSet("RandomTrader_ShortID"+i2s(idx), trade[idx].ShortID); 
+              debug(1, "RandomTrade: OrderSend (" + trade[idx].Symbol + ", OP_SELL, " + d2s(LotSize) + ", " + d2s(price - trade[idx].DLP) + ", 3, " + d2s(price - trade[idx].DLP + trade[idx].SL) + ", " + d2s(price-trade[idx].TP)+ ", RandomTrading, " + i2s(MagicNumber) + ", 0, CLR_NONE)");
+              // BUY
+              price = SymbolInfoDouble(trade[idx].Symbol, SYMBOL_ASK);
+              trade[idx].LongID = OrderSend(trade[idx].Symbol, OP_BUYSTOP, LotSize, price + trade[idx].DLP, 3, price + trade[idx].DLP - trade[idx].SL, price + trade[idx].TP, "RandomTrading", MagicNumber, 0, clrNONE);
+              GlobalVariableSet("RandomTrader_LongID"+i2s(idx), trade[idx].LongID); 
+              debug(1, "RandomTrade: OrderSend (" + trade[idx].Symbol + ", OP_BUY, " + d2s(LotSize) + ", " + d2s(price + trade[idx].DLP) + ", 3, " + d2s(price + trade[idx].DLP - trade[idx].SL) + ", " + d2s(price+trade[idx].TP)+ ", RandomTrading, " + i2s(MagicNumber) + ", 0, CLR_NONE)");
+          } else {
+            int SELLBUY = rand() % 2;
+            if (SELLBUY) {
+              // SELL
+              price = SymbolInfoDouble(trade[idx].Symbol, SYMBOL_BID);
+              trade[idx].ShortID = OrderSend(trade[idx].Symbol, OP_SELL, LotSize, price, 3, price + trade[idx].SL, price - trade[idx].TP, "RandomTrading", MagicNumber, 0, clrNONE);
+              GlobalVariableSet("RandomTrader_ShortID"+i2s(idx), trade[idx].ShortID); 
+              debug(1, "RandomTrade: OrderSend (" + trade[idx].Symbol + ", OP_SELL, " + d2s(LotSize) + ", " + d2s(price) + ", 3, " + d2s(price+trade[idx].SL) + ", " + d2s(price-trade[idx].TP)+ ", RandomTrading, " + i2s(MagicNumber) + ", 0, CLR_NONE)");
+            } else {
+              // BUY
+              price = SymbolInfoDouble(trade[idx].Symbol, SYMBOL_ASK);
+              trade[idx].LongID = OrderSend(trade[idx].Symbol, OP_BUY, LotSize, price, 3, price - trade[idx].SL, price + trade[idx].TP, "RandomTrading", MagicNumber, 0, clrNONE);
+              GlobalVariableSet("RandomTrader_LongID"+i2s(idx), trade[idx].LongID); 
+              debug(1, "RandomTrade: OrderSend (" + trade[idx].Symbol + ", OP_BUY, " + d2s(LotSize) + ", " + d2s(price) + ", 3, " + d2s(price-trade[idx].SL) + ", " + d2s(price+trade[idx].TP)+ ", RandomTrading, " + i2s(MagicNumber) + ", 0, CLR_NONE)");
+            }
           }
         } else {
           debug(2, "RandomTrade: " + trade[idx].Symbol + ": NextTrade not before: " + d2s(trade[idx].nextTrade) + " (current time: " + d2s(TimeCurrent()) + ")");
