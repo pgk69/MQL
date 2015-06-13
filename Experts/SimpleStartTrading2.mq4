@@ -9,19 +9,20 @@
 #property strict
 
 // maximum acceptable distance to original signal
-input double MaxGoodSlippage = 100;
-input double MaxBadSlippage = 5;
-input int MaxSignalAge = 180;
-extern int SignalExpiration = 3600;
-input double DefaultSL = 30;
-input double DefaultTP = 30;
-input double OrderSize = 1;
-input int MagicNumber = 9999;
-//input string url="http://fx.bartosch.name/start-signal.csv";
-input string url="http://localhost/start-signal.csv";
+input double MaxGoodSlippage = 100; // Max. Slippage zu unseren Gunsten
+input double MaxBadSlippage = 5;    // Max. Slippage zu unseren Ungunsten
+input int MaxSignalAge = 600;       // Max. Signalalter
+extern int MaxLimitAge = 300;        // Max. Signalalter fuer Limitorder
+extern int SignalExpiration = 3600; // Max. Dauer fuer pending Orders
+input double DefaultSL = 34;        // SL Default
+input double DefaultTP = 32;        // TP Default
+input double OrderSize = 25;        // Lotanzahl
+input int MagicNumber = 9999;       // Magic Number
+//input string url="http://fx.bartosch.name/start-signal.csv"; # Signal URL
+input string url="http://localhost/start-signal.csv"; // Signal URL
 
-extern int Debug = 2;
-input bool test = false;
+extern int Debug = 2;               // Debug Level
+input bool test = false;            // Testmode
 
 int TickCount = 0;
 datetime LastProcessedSignal = 0;
@@ -35,6 +36,8 @@ uchar sep = ';';
 int OnInit() {
   if (SignalExpiration < 600) debug(1, "SignalExpiration must be >= 600");
   SignalExpiration = fmax(600, SignalExpiration);
+  if (MaxLimitAge > MaxSignalAge) debug(1, "MaxLimitAge must be <= MaxSignalAge");
+  MaxLimitAge = fmin(MaxSignalAge, MaxLimitAge);
   debugLevel(fmax(3, Debug));
   return(INIT_SUCCEEDED);
 }
@@ -51,7 +54,7 @@ void OnDeinit(const int reason) {
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
-  if (TickCount++ % 10 == 0) {
+  if (TickCount++ % 5 == 0) {
     // Alert("20. Tick");
     string cookie=NULL;
     string headers;
@@ -94,14 +97,14 @@ void OnTick() {
       long signalage = TimeLocal() - signaltimestamp_epoch;
       
       if (signalage > MaxSignalAge) {
-        debug(3, "Signal is " + d2s(signalage) + " seconds old - ignoring");
+        debug(3, "Signal is " + d2s(signalage) + " seconds old - ignoring (MaxSignalAge: <" + i2s(MaxSignalAge) + ">)");
         debugLevel(fmax(2, Debug));
         return;
       }
 
       // signal has already been processed, ignore
       if (LastProcessedSignal == signaltimestamp_epoch) {
-        debug(3, "Signal is " + d2s(signalage) + " has already been processed " + t2s(signaltimestamp_epoch));
+        debug(3, "Signal has already been processed " + t2s(signaltimestamp_epoch));
         debugLevel(fmax(2, Debug));
         return;
       }
@@ -123,18 +126,29 @@ void OnTick() {
         ExecuteType = OP_BUY;
         Expiration = 0;
         if ((MaxGoodSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxBadSlippage)) {
-          debug(3, "Ignoring signal, current price " + d2s(Price) + " has moved too far away from Signal price " + d2s(SignalPrice) + " (" + d2s(MaxBadSlippage) + "<" + d2s(fmod(SignalPrice-Price, 100)) + " || " + d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxGoodSlippage) + ")");
+          if (signalage > MaxLimitAge) {
+            debug(3, "Signal is " + d2s(signalage) + " seconds old - ignoring (MaxLimitAge: <" + i2s(MaxLimitAge) + ">)");
+            debugLevel(fmax(2, Debug));
+            return;
+          }
           ExecuteType = OP_BUYLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
+          string away;
+          if (MaxGoodSlippage < fmod(SignalPrice-Price, 100)) {
+            away = d2s(MaxGoodSlippage) + "<" + d2s(fmod(SignalPrice-Price, 100));
+          } else {
+            away = d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxBadSlippage);
+          }
+          debug(2, "Current price " + d2s(Price) + " moved too far from Signal price " + d2s(SignalPrice) + " (" + away + "). Long order set as OP_BUYLIMIT (Expiration: <" + d2s(Expiration) + ">).");
+          Price = SignalPrice;
         }
 
-        // assign sane defaults if delivered SL/TP are not plausible        
+        // assign sane defaults if delivered SL/TP are not plausible
         if (SignalSL < Price - (DefaultSL + 10)) SignalSL = Price - DefaultSL;
         if (SignalTP > Price + (DefaultTP + 10)) SignalTP = Price + DefaultTP;
         int Ticket = 0;
-        // if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
-        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, 0, 0, "Start Trading", MagicNumber, Expiration, clrNONE);
-        debug(3, i2s(Ticket) + ": OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
+        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
+        debug(3, "OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
       }
 
       if (StringCompare("DAX Short", signal[0]) == 0) {
@@ -142,18 +156,29 @@ void OnTick() {
         ExecuteType = OP_SELL;
         Expiration = 0;
         if ((MaxBadSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxGoodSlippage)) {
-          debug(3, "Ignoring signal, current price " + d2s(Price) + " has moved too far away from Signal price " + d2s(SignalPrice) + " (" + d2s(MaxBadSlippage) + "<" + d2s(fmod(SignalPrice-Price, 100)) + " || " + d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxGoodSlippage) + ")");
+          if (signalage > MaxLimitAge) {
+            debug(3, "Signal is " + d2s(signalage) + " seconds old - ignoring (MaxLimitAge: <" + i2s(MaxLimitAge) + ">)");
+            debugLevel(fmax(2, Debug));
+            return;
+          }
           ExecuteType = OP_SELLLIMIT;
           Expiration = TimeCurrent() + SignalExpiration;
+          string away;
+          if (MaxBadSlippage < fmod(SignalPrice-Price, 100)) {
+            away = d2s(MaxBadSlippage) + "<" + d2s(fmod(SignalPrice-Price, 100));
+          } else {
+            away = d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxGoodSlippage);
+          }
+          debug(2, "Current price " + d2s(Price) + " moved too far from Signal price " + d2s(SignalPrice) + " (" + away + "). Short order set as OP_SELLLIMIT (Expiration: <" + d2s(Expiration) + ">).");
+          Price = SignalPrice;
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
         if (SignalSL > Price + (DefaultSL + 10)) SignalSL = Price + DefaultSL;
         if (SignalTP < Price - (DefaultTP + 10)) SignalTP = Price - DefaultTP;
         int Ticket = 0;
-        // if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
-        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, 0, 0, "Start Trading", MagicNumber, Expiration, clrNONE);
-        debug(3, i2s(Ticket) + ": OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
+        if (!test) Ticket = OrderSend(Symbol(), ExecuteType, OrderSize, Price, 3, SignalSL, SignalTP, "Start Trading", MagicNumber, Expiration, clrNONE);
+        debug(3, "OrderSend(" + Symbol() + ", " + i2s(ExecuteType) + ", " + d2s(OrderSize) + ", " + d2s(Price) + ", 3, " + d2s(SignalSL) + ", " + d2s(SignalTP) + ", Start Trading, " + i2s(MagicNumber) + ", " + t2s(Expiration) + ", " + i2s(clrNONE) + ")");
       }
       debugLevel(fmax(3, Debug));
     }
