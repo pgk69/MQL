@@ -10,16 +10,17 @@
 
 // maximum acceptable distance to original signal
 input double MaxGoodSlippage = 100; // Max. Slippage zu unseren Gunsten
-input double MaxBadSlippage = 5;    // Max. Slippage zu unseren Ungunsten
+input double MaxBadSlippage = 3;    // Max. Slippage zu unseren Ungunsten
+input double Delta = 1;             // Abschlag auf Einstieg, SL und TP des Signalgebers
 input int MaxSignalAge = 600;       // Max. Signalalter
 extern int MaxLimitAge = 300;        // Max. Signalalter fuer Limitorder
 extern int SignalExpiration = 3600; // Max. Dauer fuer pending Orders
 input double DefaultSL = 34;        // SL Default
 input double DefaultTP = 32;        // TP Default
-input double OrderSize = 25;        // Lotanzahl
+input double OrderSize = 10;        // Lotanzahl
 input int MagicNumber = 9999;       // Magic Number
-//input string url="http://fx.bartosch.name/start-signal.csv"; # Signal URL
-input string url="http://localhost/start-signal.csv"; // Signal URL
+input string url="http://fx.bartosch.name/start-signal.csv"; // Signal URL
+// input string url="http://localhost/start-signal.csv"; // Signal URL
 
 extern int Debug = 2;               // Debug Level
 input bool test = false;            // Testmode
@@ -122,9 +123,12 @@ void OnTick() {
       datetime Expiration;
 
       if (StringCompare("DAX Long", signal[0]) == 0) {
-        Price = Ask;
+        SignalPrice = SignalPrice - Delta;
+        SignalSL    = SignalSL + Delta;
+        SignalTP    = SignalTP - Delta;
+        Price       = Ask;
         ExecuteType = OP_BUY;
-        Expiration = 0;
+        Expiration  = 0;
         if ((MaxGoodSlippage < fmod(SignalPrice-Price, 100)) || (fmod(Price-SignalPrice, 100) > MaxBadSlippage)) {
           if (signalage > MaxLimitAge) {
             debug(3, "Signal is " + d2s(signalage) + " seconds old - ignoring (MaxLimitAge: <" + i2s(MaxLimitAge) + ">)");
@@ -152,6 +156,9 @@ void OnTick() {
       }
 
       if (StringCompare("DAX Short", signal[0]) == 0) {
+        SignalPrice = SignalPrice + Delta;
+        SignalSL    = SignalSL - Delta;
+        SignalTP    = SignalTP + Delta;
         Price = Bid;
         ExecuteType = OP_SELL;
         Expiration = 0;
