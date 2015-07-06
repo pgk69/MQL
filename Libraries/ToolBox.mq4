@@ -69,6 +69,62 @@ int debugLevel(int level=-1) export {
   }
   return(DebugLevel);
 }
+  int heartBeat(string file=%EA%_%SYMBOL%.log, string content=%TS4%, bool append=false);
+
+
+//+------------------------------------------------------------------+
+//| heartBeat                                                        |
+//+------------------------------------------------------------------+
+void heartBeat(string file=%EA%_%SYMBOL%.log, string content=%TS4%, bool append=false) export {
+  string file = expandString(file);
+  string content = expandString(content);
+  int file_handle = FileOpen(file_name,FILE_READ|FILE_WRITE|FILE_TXT);
+  
+  if (file_handle == INVALID_HANDLE) {
+    debug(1, "Error opening heartBeat-file: "+file);
+  } else {
+    if (append) FileSeek(file_handle,0,SEEK_END);
+   FileWrite(file_handle, content);
+   FileFlush(file_handle);
+   FileClose(file_handle);
+  }
+}
+//+------------------------------------------------------------------+
+
+
+//+------------------------------------------------------------------+
+//| expandString                                                     |
+//+------------------------------------------------------------------+
+string expandString(string input) export {
+  string key, value, output;
+  int start, ende, lastende;
+
+  output = "";
+  start = 0;
+  ende = 1;
+
+  while ((start >= 0) && (ende > start)) {
+    lastende = ende - 1;
+    start = StringFind(input, "%", 0);
+    ende  = StringFind(input, "%", start + 1);
+    value = "";
+    if ((start >= 0) && (ende > start)) {
+      output = output + StringSubstr(input, lastende, start - lastende);
+      key = StringSubstr(input, start, ende - start);
+      StringToLower(key);
+      if      (key == "%ea%")     value = EA-Name;
+      else if (key == "%symbol%") value = symbolname;
+      else if (key == "%ts4%")    {StringToLower(value);
+                                  value       = value;}
+      output = output + value;
+      input = StringSubstr(input, ende);
+    }
+  }
+  output = output + input;
+
+  return(output);  
+}
+//+------------------------------------------------------------------+
 
 
 //+------------------------------------------------------------------+

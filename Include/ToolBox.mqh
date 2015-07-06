@@ -30,6 +30,8 @@
   void ToolBox_Init();
   int debugLevel(int level=-1);
   void debug(int level, string message);
+  int heartBeat(string file=%EA%_%SYMBOL%.log, string content=%TS4%, bool append=false);
+  string expandString(string input);
   int hashIdx2Ticket(int idx);
   int hashTicket2Idx(int ticket);
   void hashInitialize(string name, double& array[], double initValue = 0);
