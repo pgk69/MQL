@@ -124,7 +124,7 @@ void OnTick() {
 
       if (StringCompare("DAX Long", signal[0]) == 0) {
         SignalPrice = SignalPrice - Delta;
-        SignalSL    = SignalSL + Delta;
+        SignalSL    = SignalSL - Delta;
         SignalTP    = SignalTP - Delta;
         Price       = Ask;
         ExecuteType = OP_BUY;
@@ -157,7 +157,7 @@ void OnTick() {
 
       if (StringCompare("DAX Short", signal[0]) == 0) {
         SignalPrice = SignalPrice + Delta;
-        SignalSL    = SignalSL - Delta;
+        SignalSL    = SignalSL + Delta;
         SignalTP    = SignalTP + Delta;
         Price = Bid;
         ExecuteType = OP_SELL;
