@@ -17,6 +17,7 @@ extern int MaxLimitAge = 300;        // Max. Signalalter fuer Limitorder
 extern int SignalExpiration = 3600; // Max. Dauer fuer pending Orders
 input double DefaultSL = 34;        // SL Default
 input double DefaultTP = 32;        // TP Default
+// Lotzahl ActivTrades 25,-  Sensus 0,10(10)  ETX 1,-(25/10)
 input double OrderSize = 10;        // Lotanzahl
 input int MagicNumber = 9999;       // Magic Number
 input string url="http://fx.bartosch.name/start-signal.csv"; // Signal URL
