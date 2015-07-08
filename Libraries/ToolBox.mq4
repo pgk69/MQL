@@ -69,24 +69,23 @@ int debugLevel(int level=-1) export {
   }
   return(DebugLevel);
 }
-  int heartBeat(string file=%EA%_%SYMBOL%.log, string content=%TS4%, bool append=false);
 
 
 //+------------------------------------------------------------------+
 //| heartBeat                                                        |
 //+------------------------------------------------------------------+
-void heartBeat(string file=%EA%_%SYMBOL%.log, string content=%TS4%, bool append=false) export {
-  string file = expandString(file);
-  string content = expandString(content);
-  int file_handle = FileOpen(file_name,FILE_READ|FILE_WRITE|FILE_TXT);
+void heartBeat(string file_name="%EA%_%SYMBOL%.log", string content="%TS4% %TSTICK%", bool append=false) export {
+  file_name = expandString(file_name);
+  content = expandString(content);
+  int file_handle = FileOpen(file_name, FILE_READ|FILE_WRITE|FILE_TXT);
   
   if (file_handle == INVALID_HANDLE) {
-    debug(1, "Error opening heartBeat-file: "+file);
+    debug(1, "Error opening heartBeat-file: " + file_name);
   } else {
-    if (append) FileSeek(file_handle,0,SEEK_END);
-   FileWrite(file_handle, content);
-   FileFlush(file_handle);
-   FileClose(file_handle);
+    if (append) FileSeek(file_handle, 0, SEEK_END);
+    FileWrite(file_handle, content);
+    FileFlush(file_handle);
+    FileClose(file_handle);
   }
 }
 //+------------------------------------------------------------------+
@@ -95,32 +94,33 @@ void heartBeat(string file=%EA%_%SYMBOL%.log, string content=%TS4%, bool append=
 //+------------------------------------------------------------------+
 //| expandString                                                     |
 //+------------------------------------------------------------------+
-string expandString(string input) export {
+string expandString(string inputstr) export {
   string key, value, output;
-  int start, ende, lastende;
+  int start, ende;
 
   output = "";
   start = 0;
   ende = 1;
 
   while ((start >= 0) && (ende > start)) {
-    lastende = ende - 1;
-    start = StringFind(input, "%", 0);
-    ende  = StringFind(input, "%", start + 1);
-    value = "";
-    if ((start >= 0) && (ende > start)) {
-      output = output + StringSubstr(input, lastende, start - lastende);
-      key = StringSubstr(input, start, ende - start);
+    start = StringFind(inputstr, "%", 0);
+    ende  = StringFind(inputstr, "%", start+1) + 1;
+    if ((start >= 0) && (ende > start+2)) {
+      if (start > 0) output = output + StringSubstr(inputstr, 0, start);
+      key = StringSubstr(inputstr, start, ende - start);
+      value = key;
       StringToLower(key);
-      if      (key == "%ea%")     value = EA-Name;
-      else if (key == "%symbol%") value = symbolname;
-      else if (key == "%ts4%")    {StringToLower(value);
-                                  value       = value;}
+
+      if      (key == "%ea%")     value = MQLInfoString(MQL_PROGRAM_NAME);
+      else if (key == "%symbol%") value = Symbol();
+      else if (key == "%tstick%") value = i2s(TimeCurrent());
+      else if (key == "%ts4%")    value = TimeToStr(TimeCurrent());
+      
       output = output + value;
-      input = StringSubstr(input, ende);
+      inputstr = StringSubstr(inputstr, ende);
     }
   }
-  output = output + input;
+  output = output + inputstr;
 
   return(output);  
 }
