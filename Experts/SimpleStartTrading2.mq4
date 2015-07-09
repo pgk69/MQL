@@ -96,7 +96,7 @@ void OnTick() {
       
       datetime signaltimestamp_epoch = StructToTime(SignalTimestamp);
       // compute age of signal, it must not be older than 2 minutes
-      long signalage = TimeLocal() - signaltimestamp_epoch;
+      long signalage = TimeCurrent() - signaltimestamp_epoch;
       
       if (signalage > MaxSignalAge) {
         debug(3, "Signal is " + d2s(signalage) + " seconds old - ignoring (MaxSignalAge: <" + i2s(MaxSignalAge) + ">)");
