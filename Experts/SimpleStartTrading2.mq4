@@ -10,7 +10,8 @@
 
 // maximum acceptable distance to original signal
 input double MaxGoodSlippage = 100; // Max. Slippage zu unseren Gunsten
-input double MaxBadSlippage = 3;    // Max. Slippage zu unseren Ungunsten
+extern double MaxBadSlippage = 7;   // Max. Slippage zu unseren Ungunsten
+extern double LimitDelta = 6;       // Minimaler Abstand bei Limitorders
 input double Delta = 1;             // Abschlag auf Einstieg, SL und TP des Signalgebers
 input int MaxSignalAge = 600;       // Max. Signalalter
 extern int MaxLimitAge = 300;        // Max. Signalalter fuer Limitorder
@@ -40,6 +41,8 @@ int OnInit() {
   SignalExpiration = fmax(600, SignalExpiration);
   if (MaxLimitAge > MaxSignalAge) debug(1, "MaxLimitAge must be <= MaxSignalAge");
   MaxLimitAge = fmin(MaxSignalAge, MaxLimitAge);
+  LimitDelta = fmax(LimitDelta, Delta);
+  MaxBadSlippage = fmax(LimitDelta, MaxBadSlippage);
   debugLevel(fmax(3, Debug));
   return(INIT_SUCCEEDED);
 }
@@ -116,17 +119,17 @@ void OnTick() {
       // process the signal
       LastProcessedSignal = signaltimestamp_epoch;
       
-      double SignalPrice    = StrToDouble(signal[1]);
-      double SignalSL       = StrToDouble(signal[2]);
-      double SignalTP       = StrToDouble(signal[3]);
+      double OrgSignalPrice    = StrToDouble(signal[1]);
+      double OrgSignalSL       = StrToDouble(signal[2]);
+      double OrgSignalTP       = StrToDouble(signal[3]);
       double Price;
       int ExecuteType;
       datetime Expiration;
 
       if (StringCompare("DAX Long", signal[0]) == 0) {
-        SignalPrice = SignalPrice - Delta;
-        SignalSL    = SignalSL - Delta;
-        SignalTP    = SignalTP - Delta;
+        double SignalPrice = OrgSignalPrice - Delta;
+        double SignalSL    = OrgSignalSL - Delta;
+        double SignalTP    = OrgSignalTP - Delta;
         Price       = Ask;
         ExecuteType = OP_BUY;
         Expiration  = 0;
@@ -144,8 +147,8 @@ void OnTick() {
           } else {
             away = d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxBadSlippage);
           }
-          debug(2, "Current price " + d2s(Price) + " moved too far from Signal price " + d2s(SignalPrice) + " (" + away + "). Long order set as OP_BUYLIMIT (Expiration: <" + d2s(Expiration) + ">).");
-          Price = SignalPrice;
+          Price = fmin(SignalPrice, Ask - LimitDelta);
+          debug(2, "Current price " + d2s(Price) + " moved too far from Signal price " + d2s(SignalPrice) + " (" + away + "). Long order set as OP_BUYLIMIT (Ask: <" + d2s(Ask) + ">  Price: <" + d2s(Price) + ">  Expiration: <" + d2s(Expiration) + ">).");
         }
 
         // assign sane defaults if delivered SL/TP are not plausible
@@ -157,9 +160,9 @@ void OnTick() {
       }
 
       if (StringCompare("DAX Short", signal[0]) == 0) {
-        SignalPrice = SignalPrice + Delta;
-        SignalSL    = SignalSL + Delta;
-        SignalTP    = SignalTP + Delta;
+        double SignalPrice = OrgSignalPrice + Delta;
+        double SignalSL    = OrgSignalSL + Delta;
+        double SignalTP    = OrgSignalTP + Delta;
         Price = Bid;
         ExecuteType = OP_SELL;
         Expiration = 0;
@@ -177,8 +180,8 @@ void OnTick() {
           } else {
             away = d2s(fmod(Price-SignalPrice, 100)) +  ">" + d2s(MaxGoodSlippage);
           }
-          debug(2, "Current price " + d2s(Price) + " moved too far from Signal price " + d2s(SignalPrice) + " (" + away + "). Short order set as OP_SELLLIMIT (Expiration: <" + d2s(Expiration) + ">).");
-          Price = SignalPrice;
+          Price = fmax(SignalPrice, Bid + LimitDelta);
+          debug(2, "Current price " + d2s(Price) + " moved too far from Signal price " + d2s(SignalPrice) + " (" + away + "). Short order set as OP_SELLLIMIT (Bid: <" + d2s(Bid) + ">  Price: <" + d2s(Price) + ">  Expiration: <" + d2s(Expiration) + ">).");
         }
 
         // assign sane defaults if delivered SL/TP are not plausible        
